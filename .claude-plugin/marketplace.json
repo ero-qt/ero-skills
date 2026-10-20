@@ -27,6 +27,16 @@
       "skills": [
         "./skills/code-comments"
       ]
+    },
+    {
+      "name": "terse-replies",
+      "description": "Keeps chat replies caveman-short at 3 levels, with the answer first, exact steps and the state and next step at the end.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/terse-replies"
+      ]
     }
   ]
 }
