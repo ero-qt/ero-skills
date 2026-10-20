@@ -17,6 +17,16 @@
       "skills": [
         "./skills/repo-writing"
       ]
+    },
+    {
+      "name": "code-comments",
+      "description": "Makes code explain itself and keeps comments to the facts that the code can't show.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/code-comments"
+      ]
     }
   ]
 }

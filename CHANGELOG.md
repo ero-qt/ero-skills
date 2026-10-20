@@ -10,5 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `repo-writing` skill, which writes commits, PRs, issues, review replies and docs the way a person on GitHub would, after it reads the repo's own style.
+- `code-comments` skill, which makes code explain itself and keeps comments to the facts that the code can't show.
 
 [Unreleased]: https://github.com/ero-qt/skills/commits/main/
