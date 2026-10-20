@@ -1,0 +1,14 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- `repo-writing` skill, which writes commits, PRs, issues, review replies and docs the way a person on GitHub would, after it reads the repo's own style.
+
+[Unreleased]: https://github.com/ero-qt/skills/commits/main/

@@ -1,0 +1,22 @@
+{
+  "name": "ero-qt-skills",
+  "owner": {
+    "name": "ero-qt",
+    "url": "https://github.com/ero-qt"
+  },
+  "metadata": {
+    "description": "Skills for working on code with Claude the way a careful contributor would."
+  },
+  "plugins": [
+    {
+      "name": "repo-writing",
+      "description": "Writes commits, PRs, issues, review replies and docs the way a person on GitHub would, after it reads the repo's own style.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/repo-writing"
+      ]
+    }
+  ]
+}
