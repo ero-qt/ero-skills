@@ -1,0 +1,52 @@
+{
+  "name": "ero-qt-skills",
+  "owner": {
+    "name": "ero-qt",
+    "url": "https://github.com/ero-qt"
+  },
+  "metadata": {
+    "description": "Skills for working on code with Claude the way a careful contributor would."
+  },
+  "plugins": [
+    {
+      "name": "repo-writing",
+      "description": "Writes commits, PRs, issues, review replies and docs the way a person on GitHub would, after it reads the repo's own style.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/repo-writing"
+      ]
+    },
+    {
+      "name": "code-comments",
+      "description": "Makes code explain itself and keeps comments to the facts that the code can't show.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/code-comments"
+      ]
+    },
+    {
+      "name": "terse-replies",
+      "description": "Keeps chat replies caveman-short at 3 levels, with the answer first, exact steps and the state and next step at the end.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/terse-replies"
+      ]
+    },
+    {
+      "name": "work-loop",
+      "description": "Runs repo tasks in one fixed order, from checking open PRs and issues to the review and the PR.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "skills": [
+        "./skills/work-loop"
+      ]
+    }
+  ]
+}
