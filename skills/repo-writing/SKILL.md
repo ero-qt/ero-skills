@@ -13,7 +13,7 @@ Chat replies follow terse-replies, which also uses the tells in this skill at ev
 
 Before the first draft of any kind, look at what the repo already does and match it. The repo wins over every default below.
 
-- Templates: `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE*`, `CONTRIBUTING*`. Fill a template's sections in its order and keep its formatting (bold labels included). Don't restate it.
+- Templates: `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE*`, `CONTRIBUTING*`. Fill a template's sections in its order and keep its formatting (bold labels included). A template's heading levels and sections win over the heading and test rules below. Don't restate it.
 - Commit subjects: `git log --format=%s -40`. Match the casing (lowercase in some repos, capitalized in others), type prefixes or none, the length and how the first word is chosen.
 - PR and issue titles and bodies: `gh pr list --state merged -L 10 --json title,body` and `gh issue list -L 10 --json title,body`. Match the relation lines (`Closes #N`, `Part of #N.`, `Depends on #N.`), heading use and length.
 - The user's own voice: read their recent PRs and comments on the repo (`gh search prs --author @me --repo <owner/repo>`) and match their sentence length, words and punctuation.
@@ -57,7 +57,7 @@ Defaults when the house has no stronger convention:
 ## 5. Pull requests
 
 - Title: sentence case, imperative, capital first word, no Title Case (`Fix static reads for inherited fields`). Match the repo's titles, including whether they carry the issue number.
-- Body, in order: the relation line when the house uses one (`Closes #12.`, `Part of #141.`), then a first sentence that says what the whole PR does, present tense, starting with a verb ("Adds...", "Fixes..."). Then the smaller changes, each on its own line or short paragraph. Then why or how, only where it isn't obvious.
+- Body, in order: the relation line when the house uses one (`Closes #12.`, `Part of #141.`), then a first sentence that says what the whole PR does, present tense, starting with a verb ("Adds...", "Fixes...", "Makes...", "Changes...", never "This..."). The problem or the old behavior comes after it, never first. Then the smaller changes, each on its own line or short paragraph. Then why or how, only where it isn't obvious.
 - Short. One or two sentences plus lean bullets often does it. A one-purpose PR may need one line ("License, readme, and build settings."). Nobody writes essays in PR bodies.
 - Show examples instead of describing: the declaration, the call, the command and its output.
 - Don't repeat the issue's content. Link it.
@@ -104,7 +104,7 @@ Defaults when the house has no stronger convention:
 
 - One line per paragraph. Never hard-wrap prose in PRs, issues or READMEs.
 - In PR, issue and comment bodies, `###` is the biggest heading and a short body has none. Files keep their format's headings (a README's `#` title, a changelog's `##` versions). Headings in sentence case, never bold used as a heading.
-- `-` for bullets. Mix prose and bullets the way the content wants, with no fixed "sentence then three bullets" template. After a lead-in that ends in a colon, bullets start lowercase, end in commas, and the last one ends in a period. After a lead-in that ends in a period, each bullet is a full sentence with a capital and a period. Leave a blank line after a list.
+- `-` for bullets. Mix prose and bullets the way the content wants, with no fixed "sentence then three bullets" template. Bullets are for listing things, especially long or repeating ones. Numbered lists are for steps. `###` headings split a PR or issue body into parts when it has distinct parts. After a lead-in that ends in a colon, bullets start lowercase, end in commas, and the last one ends in a period. After a lead-in that ends in a period, each bullet is a full sentence with a capital and a period. Leave a blank line after a list.
 - `<details>` for anything long.
 - Backticks around code names, keywords and literal values (but not in a GitHub About field, which doesn't render them. An About line is a noun phrase like "A source-only package for...").
 - Numerals for numbers. American spelling. Acronyms and names in their proper case (JSON, Linux, Mac).
