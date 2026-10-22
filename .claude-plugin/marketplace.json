@@ -36,7 +36,8 @@
       "license": "0BSD",
       "skills": [
         "./skills/terse-replies"
-      ]
+      ],
+      "outputStyles": "./skills/terse-replies/output-styles/terse.md"
     },
     {
       "name": "work-loop",
