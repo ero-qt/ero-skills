@@ -36,7 +36,31 @@
       "license": "0BSD",
       "skills": [
         "./skills/terse-replies"
-      ]
+      ],
+      "outputStyles": "./skills/terse-replies/output-styles/terse.md",
+      "hooks": {
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/terse-hook.js\" prompt"
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "matcher": "startup|resume|clear|compact",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/terse-hook.js\" session"
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "work-loop",
