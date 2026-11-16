@@ -96,6 +96,16 @@ class Ledger(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines(), ["red: test_b: expected 1 but was 0", "green: 12/12"])
 
+    # The record of a commit is written after it, so its head is the new HEAD. It belongs to the commit before.
+    def test_show_leaves_out_the_record_of_the_last_commit(self):
+        commit(self.repo, "a.txt")
+        self.run_ledger("add", "commit", git(self.repo, "rev-parse", "--short=7", "HEAD").strip())
+        self.run_ledger("add", "red", "test_b: expected 1 but was 0")
+
+        result = self.run_ledger("show")
+
+        self.assertEqual(result.stdout.splitlines(), ["red: test_b: expected 1 but was 0"])
+
     def test_show_without_a_ledger_prints_nothing(self):
         result = self.run_ledger("show")
 

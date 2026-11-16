@@ -43,7 +43,7 @@ Claude Code asks before the Write and Edit tools or a shell redirect change a fi
 - At the start of each commit, write the inputs of the stage agents to the ledger as 1 `inputs` record next to the stage records, so a rerun after a crash doesn't have to dig them out of the chat.
 - A long or unattended run keeps a living plan file. [slice-plan.md](slice-plan.md) has its form. Write its path in the `slice` record.
 - A workflow run that stopped goes on with `resumeFromRunId`, the same arguments and `resumeNotes` with a note for the stage that stopped, like `{"style": "the formatter already ran"}`. Keep the notes of earlier relaunches in it. The stages before return their saved results without running again, as long as the session is the same one.
-- After a compaction or a resume, run `ledger.js last` and read the plan file. The first stage without a record is where the commit goes on. Tell the agent of that stage that the tree may already have part of its work, so it keeps what's right instead of starting over.
+- After a compaction or a resume, run `ledger.js show` and read the plan file. The first stage without a record is where the commit goes on. Tell the agent of that stage that the tree may already have part of its work, so it keeps what's right instead of starting over.
 
 ## Cost
 

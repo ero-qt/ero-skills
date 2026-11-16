@@ -52,9 +52,15 @@ function readRecords(cwd) {
     });
 }
 
+// The `commit` record is written after the commit, so its head is the new HEAD. It belongs to the commit before.
 function currentRecords(cwd) {
     const current = head(cwd);
-    return readRecords(cwd).filter((record) => record.head === current);
+    return readRecords(cwd).filter((record) => record.head === current && !isCommitOf(record, current));
+}
+
+function isCommitOf(record, hash) {
+    const proof = String(record.proof).trim();
+    return record.stage === 'commit' && proof.length >= 4 && hash.startsWith(proof);
 }
 
 function addRecord(cwd, stage, proof) {
