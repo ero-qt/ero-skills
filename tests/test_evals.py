@@ -21,7 +21,7 @@ GRADER_KEYS = {
 }
 REQUIRED_GRADER_KEYS = {"regex": {"pattern"}, "tool_used": {"tool"}, "tool_order": {"before", "after"},
                         "file_exists": {"path"}, "llm": set()}
-MISTAKES = ["ai-tells", "process-weight", "design", "reuse", "reply-shape", "conventions", "gates"]
+MISTAKES = ["ai-tells", "process-weight", "design", "reuse", "reply-shape", "conventions", "gates", "trigger"]
 
 
 def read(path):
@@ -62,12 +62,28 @@ def skill_of(case):
     return os.path.basename(os.path.dirname(case))
 
 
+def tags_of(case):
+    return items(split_frontmatter(read(os.path.join(case, "prompt.md")))[0].get("tags", "[]"))
+
+
 def graders(case):
     return {os.path.basename(path)[:-3]: split_frontmatter(read(path))
             for path in sorted(glob.glob(os.path.join(case, "graders", "*.md")))}
 
 
 class Suites(unittest.TestCase):
+    # A trigger suite follows the skill-creator method: prompts that should load the skill and prompts that shouldn't.
+    def test_trigger_cases_cover_loading_and_not_loading(self):
+        for skill in SKILLS:
+            trigger = [case for case in cases(skill) if "trigger" in tags_of(case)]
+            if not trigger:
+                continue
+            limits = [next(fields for fields, _ in graders(case).values() if fields.get("tool") == "Skill")
+                      for case in trigger]
+            with self.subTest(skill=skill):
+                self.assertGreaterEqual(sum(fields.get("min") == "1" for fields in limits), 10)
+                self.assertGreaterEqual(sum(fields.get("min") == "0" and fields.get("max") == "0" for fields in limits), 10)
+
     def test_every_skill_has_at_least_3_cases(self):
         for skill in SKILLS:
             with self.subTest(skill=skill):
@@ -135,8 +151,11 @@ class Prompts(unittest.TestCase):
 
 
 class Graders(unittest.TestCase):
+    # A trigger case only checks whether its skill loads.
     def test_every_case_has_a_grader_on_the_result(self):
         for case in cases():
+            if "trigger" in tags_of(case):
+                continue
             kinds = [fields.get("type") for fields, _ in graders(case).values()]
             with self.subTest(case=case):
                 self.assertTrue(set(kinds) & {"regex", "llm", "file_exists"})

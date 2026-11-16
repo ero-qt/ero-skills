@@ -129,6 +129,37 @@
           }
         ]
       }
+    },
+    {
+      "name": "work-ethic",
+      "description": "Keeps the knobs of the 4 skills, like the loop level and the terse level, and says which skill covers what and what to reload after a compaction.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "dependencies": [
+        "repo-writing",
+        "code-comments",
+        "terse-replies",
+        "work-loop"
+      ],
+      "skills": [
+        "./skills/work-ethic"
+      ],
+      "experimental": {
+        "evals": "evals/work-ethic"
+      },
+      "hooks": {
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-ethic/scripts/knobs.js\" prompt"
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }
