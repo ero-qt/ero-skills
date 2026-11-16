@@ -281,6 +281,25 @@ class TerseReminder(KnobsCase):
         self.assertNotIn("house", text)
         self.assertNotIn("ledger", text)
 
+    def test_resume_and_fork_give_the_house_brief_without_the_reload_order(self):
+        os.makedirs(os.path.join(self.repo, ".git", "work-loop"), exist_ok=True)
+        with open(os.path.join(self.repo, ".git", "work-loop", "house.md"), "w", encoding="utf-8") as file:
+            file.write("- Tabs.\n")
+        for source in ("resume", "fork"):
+            with self.subTest(source=source):
+                text = self.session(source)
+                self.assertIn("house.md", text)
+                self.assertNotIn("reload", text)
+
+    # Auto mode lasts for 1 stretch of work. A resumed session starts gated again, a compaction keeps it.
+    def test_resume_ends_auto_and_compaction_keeps_it(self):
+        self.prompt("auto on")
+        self.session("compact")
+        self.assertIn("auto", self.prompt("fix the build"))
+
+        self.session("resume")
+        self.assertIn("gated", self.prompt("fix the build"))
+
 
 class PluginHooks(unittest.TestCase):
     def test_only_work_ethic_has_hooks_and_every_script_exists(self):
@@ -291,6 +310,8 @@ class PluginHooks(unittest.TestCase):
         self.assertEqual([name for name, plugin in plugins.items() if "hooks" in plugin], ["work-ethic"])
         hooks = plugins["work-ethic"]["hooks"]
         self.assertEqual(sorted(hooks), ["PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"])
+        # knobs.js reads the source itself, so a matcher would only drop sources like `fork`.
+        self.assertNotIn("matcher", hooks["SessionStart"][0])
         for event, groups in hooks.items():
             for group in groups:
                 for hook in group["hooks"]:

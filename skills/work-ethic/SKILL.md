@@ -33,7 +33,7 @@ A subagent starts without the skills or the chat. When it writes code or repo te
 The plugin's hooks run for the whole session, whether this skill is loaded or not.
 
 - At every prompt, `scripts/knobs.js` saves the knob phrases and shows the knobs in 1 line. After a reply that broke a terse rule, it adds the full terse rules once.
-- At the start of a session it shows the terse rules and the knobs. After a compaction it also lists the skills to load again. After a compaction or a resume it gives the house brief and the newest ledger record.
+- At the start of a session it shows the terse rules and the knobs. After a compaction it also lists the skills to load again. After a compaction, a resume or a fork it gives the house brief and the newest ledger record.
 - At the end of each turn, `reply-check.js` of terse-replies writes down the reply rules it finds broken. It never stops the turn.
 - Before a `git commit`, `commit-guard.js` of work-loop stops a commit with a trailer, a hard prose finding or a path that must never be staged. It warns when source changed without a doc change.
 
@@ -56,7 +56,7 @@ The user changes a knob by saying its phrase on a line of its own, like `loop st
 The Knobs section of work-loop and the Levels table of terse-replies say what each value does.
 
 - `terse` goes in `${CLAUDE_PLUGIN_DATA}/knobs.json`, the user's file, so it stays the same in every repo and session.
-- `autonomy` only lasts for the session it was said in and never goes in a file.
+- `autonomy` only lasts for the session it was said in and never goes in a file. A resumed session starts gated again.
 - The rest go in `.git/work-loop/knobs.json` of the repo, which wins over the user's file. Outside a repo they go in the user's file.
 
 When the user asks for a knob in other words, or wants a default for every repo, save it yourself:

@@ -8,8 +8,10 @@
 //                                             and prints the knobs in 1 line, with the full terse rules
 //                                             after a reply that broke one
 //     node knobs.js session                   SessionStart hook: prints the full terse rules and the knobs.
-//                                             After a compaction or a resume it also prints what to reload,
-//                                             the house brief and the newest ledger record
+//                                             After a compaction it also prints what to reload. After a
+//                                             compaction, a resume or a fork it prints the house brief
+//                                             and the newest ledger record. Auto mode ends at any session
+//                                             start but a compaction
 //     node knobs.js show [--json]             print the knobs in effect
 //     node knobs.js set <knob> <value> [--user]
 //                                             save a knob for this repo, or for every repo with --user
@@ -221,13 +223,29 @@ function resumeLines(cwd) {
     ];
 }
 
+// Auto mode lasts for 1 stretch of work, so it ends at any session start but a compaction.
+function endAuto({ dataDir, session }) {
+    const file = path.join(dataDir, 'session.json');
+    if (session && readJson(file).session === session) {
+        fs.rmSync(file, { force: true });
+    }
+}
+
 function runSession(context, event) {
+    if (event.source !== 'compact') {
+        try {
+            endAuto(context);
+        } catch {
+            // An unwritable file never fails the session start.
+        }
+    }
+
     const knobs = readKnobs(context);
     const lines = [reminder(knobs.terse), knobLine(knobs)];
     if (event.source === 'compact') {
         lines.push(`reload: ${RELOAD_ORDER.join(', ')}`);
     }
-    if (event.source === 'compact' || event.source === 'resume') {
+    if (['compact', 'resume', 'fork'].includes(event.source)) {
         lines.push(...resumeLines(context.cwd));
     }
 
