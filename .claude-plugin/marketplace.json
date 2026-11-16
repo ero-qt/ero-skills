@@ -90,6 +90,7 @@
       "skills": [
         "./skills/work-loop"
       ],
+      "workflows": "./skills/work-loop/workflows",
       "experimental": {
         "evals": "evals/work-loop"
       },

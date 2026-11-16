@@ -10,6 +10,7 @@ Pick how the agents run by what the session has:
 
 | The session has | How the stages run |
 |---|---|
+| The Workflow tool | 1 run of the plugin's `commit-cycle` workflow per commit, as `/work-loop:commit-cycle`. Pass it `subject`, `size`, `loop`, `spec`, `houseBrief`, `briefs` (the path of stage-briefs.md), `ci`, `base`, `models` with `plan`, `review` and `impl`, and your `plan` for a medium commit. It runs the agents of the size in order, with the review agents at the same time, and returns `status` and the `records`. A stop also returns the `stage` and the `reason`. |
 | Subagents | 1 subagent per stage, in the order of the table in stages.md, each with its brief and the inputs of "Every stage". The review agents of 1 commit run at the same time. |
 | No subagents | You do each stage yourself, in the same order. The review is a reread of the diff with [review-checklist.md](review-checklist.md). |
 
@@ -39,6 +40,7 @@ Claude Code asks before the Write and Edit tools or a shell redirect change a fi
 
 - At the start of each commit, write the inputs of the stage agents to the ledger as 1 `inputs` record next to the stage records, so a rerun after a crash doesn't have to dig them out of the chat.
 - A long or unattended run keeps a living plan file. [slice-plan.md](slice-plan.md) has its form. Write its path in the `slice` record.
+- A workflow run that stopped in the middle of a stage goes on with `resumeFromRunId`, the same arguments and `resumeNote` set to `{stage, note}` for that stage. The stages before it return their saved results without running again, as long as the session is the same one.
 - After a compaction or a resume, run `ledger.js last` and read the plan file. The first stage without a record is where the commit goes on. Tell the agent of that stage that the tree may already have part of its work, so it keeps what's right instead of starting over.
 
 ## Cost

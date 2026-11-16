@@ -1,6 +1,6 @@
 # Stage briefs
 
-Each section is the brief of 1 stage agent. Start a subagent for each stage and paste its section into the prompt, below the inputs.
+Each section is the brief of 1 stage agent. The `commit-cycle` workflow sends each agent the path of this file and the name of its section. Without the workflow, start a subagent for each stage and paste its section into the prompt, below the inputs.
 
 ## Every stage
 
