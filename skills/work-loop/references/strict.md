@@ -11,7 +11,7 @@ Pick how the agents run by what the session has:
 | The session has | How the stages run |
 |---|---|
 | The Workflow tool | 1 run of the plugin's `commit-cycle` workflow per commit, as `/work-loop:commit-cycle`. Pass it `subject`, `size`, `loop`, `spec`, `houseBrief`, `briefs` (the path of stage-briefs.md), `ci`, `base`, `models` with `plan`, `review` and `impl`, and your `plan` for a medium commit. It runs the agents of the size in order, with the review agents at the same time, and returns `status` and the `records`. A stop also returns the `stage` and the `reason`. |
-| Subagents | 1 subagent per stage, in the order of the table in stages.md, each with its brief and the inputs of "Every stage". The review agents of 1 commit run at the same time. |
+| Subagents | 1 subagent per stage, as the plugin's `work-loop:stage-<stage>` agent when it's there, in the order of the table in stages.md, each with its brief and the inputs of "Every stage". The review agents of 1 commit run at the same time. |
 | No subagents | You do each stage yourself, in the same order. The review is a reread of the diff with [review-checklist.md](review-checklist.md). |
 
 Pass each agent its model by name, from the `plan-model`, `review-model` and `impl-model` knobs. Plan and research use `plan-model`, review uses `review-model` and the rest use `impl-model`.

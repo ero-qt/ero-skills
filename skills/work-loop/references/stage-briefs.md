@@ -1,6 +1,6 @@
 # Stage briefs
 
-Each section is the brief of 1 stage agent. The `commit-cycle` workflow sends each agent the path of this file and the name of its section. Without the workflow, start a subagent for each stage and paste its section into the prompt, below the inputs.
+Each section is the brief of 1 stage agent. The `commit-cycle` workflow starts the plugin's `stage-<section>` agent for each stage, like `work-loop:stage-red`, and that agent reads its section here. The stage agents come with repo-writing and code-comments loaded. Without the workflow, start a subagent for each stage and paste its section into the prompt, below the inputs.
 
 ## Every stage
 
@@ -17,7 +17,7 @@ Rules for every stage:
 - Don't commit, push, tag or delete anything and don't touch a remote.
 - Stage only by explicit path. Never `git add -A`, `git add .` or `git commit -a`.
 - Run each CI command as given into its own log file and read the log. Don't start any other long process.
-- Write repo text by repo-writing and code by code-comments. Run `python3 <skills>/repo-writing/scripts/prose_check.py --staged` after you stage text.
+- Write repo text by repo-writing and code by code-comments. Run `python3 <skills>/repo-writing/scripts/prose_check.py --staged` after you stage text. `<skills>` is the folder above the `work-loop` folder of this file.
 - When the prompt has a resume note, the tree already has part of this stage's work from a run that stopped. Read it, keep what's right and finish the stage.
 - Return only the fields the stage asks for. The driver writes the ledger record from them.
 

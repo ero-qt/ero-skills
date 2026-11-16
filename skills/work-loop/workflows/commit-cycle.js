@@ -101,7 +101,7 @@ function inputs(stage, plan) {
 }
 
 function options(stage, label, model, phaseTitle) {
-  const chosen = { label, phase: phaseTitle, schema: SCHEMAS[stage] }
+  const chosen = { label, phase: phaseTitle, schema: SCHEMAS[stage], agentType: `work-loop:stage-${stage}` }
   if (model && model.model) {
     chosen.model = model.model
   }

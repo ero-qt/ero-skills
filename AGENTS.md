@@ -6,7 +6,7 @@ This repo contains Claude Code skills. Each skill is its own plugin in `.claude-
 
 - `skills/<name>/SKILL.md` is the skill. Its frontmatter has `name` (the folder name) and `description`. The description tells Claude what the skill does and when to load it, because it is all Claude sees before loading.
 - `skills/<name>/references/` contains long lists and examples the skill links to. `skills/<name>/scripts/` contains scripts the skill runs.
-- `skills/<name>/workflows/` contains the workflow scripts of a skill. The plugin entry of the skill in `.claude-plugin/marketplace.json` points `workflows` at that folder, because every plugin's source is the repo root.
+- `skills/<name>/workflows/` contains the workflow scripts of a skill and `skills/<name>/agents/` its subagents. The plugin entry of the skill in `.claude-plugin/marketplace.json` points `workflows` at that folder and lists each agent file in `agents`, because every plugin's source is the repo root.
 - `tests/` contains the unit tests for the scripts. `tests/workflow_harness.js` runs a workflow script with set replies in place of the agents, so its tests don't start any.
 - `evals/<skill>/<case>/` contains the eval cases that `claude plugin eval` runs. A case has a `prompt.md` with the prompt and its run settings. Each grader is 1 file in `graders/`. A case that needs files in its workspace also gets a `case.yaml` and a `setup.sh` that creates them.
 - A skill refers to another skill's files as `<skills>/<other>/...`, which starts at the folder above the skill's base directory.

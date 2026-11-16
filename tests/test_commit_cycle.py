@@ -277,6 +277,12 @@ class Agents(unittest.TestCase):
             self.assertEqual(call(output, label)["model"], "impl-model")
             self.assertNotIn("effort", call(output, label))
 
+    def test_each_stage_runs_as_its_plugin_agent(self):
+        for item in run()["calls"]:
+            stage = item["label"].split(":")[0]
+            with self.subTest(label=item["label"]):
+                self.assertEqual(item["agentType"], f"work-loop:stage-{stage}")
+
     def test_every_prompt_has_the_inputs_of_every_stage(self):
         for item in run()["calls"]:
             with self.subTest(label=item["label"]):

@@ -91,6 +91,17 @@
         "./skills/work-loop"
       ],
       "workflows": "./skills/work-loop/workflows",
+      "agents": [
+        "./skills/work-loop/agents/stage-adversarial.md",
+        "./skills/work-loop/agents/stage-docs.md",
+        "./skills/work-loop/agents/stage-fix.md",
+        "./skills/work-loop/agents/stage-implement.md",
+        "./skills/work-loop/agents/stage-plan.md",
+        "./skills/work-loop/agents/stage-red.md",
+        "./skills/work-loop/agents/stage-review.md",
+        "./skills/work-loop/agents/stage-simplify.md",
+        "./skills/work-loop/agents/stage-style.md"
+      ],
       "experimental": {
         "evals": "evals/work-loop"
       },
