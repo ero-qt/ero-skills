@@ -126,6 +126,9 @@ class SpecRules(unittest.TestCase):
                 self.assertIn(rule, run("--text", bad)[1])
                 self.assertNotIn(rule, run("--text", good)[1])
 
+    def test_definition_first_is_a_fronted_clause(self):
+        self.assertIn("fronted clause", run("--text", "`\\r` is a line ending and the parser stops there")[1])
+
     def test_list_of_longer_items_is_not_a_triad(self):
         self.assertNotIn("triad", run("--text", "a table of severity, location, finding and the input")[1])
 
@@ -233,6 +236,16 @@ class ParagraphChecks(unittest.TestCase):
         text = "`--staged` checks the diff. `--text` checks a subject. `--explain` prints a row.\n"
         self.assertNotIn("same skeleton in a row", run_file(text)[1])
 
+    def test_comma_and_three_times_is_flagged(self):
+        text = ("The cache keeps 10 entries, and it clears on save. A reader checks it first, and the writer waits. "
+                "Each miss costs a read, and the log counts it.\n")
+        self.assertIn("same skeleton in a row", run_file(text)[1])
+
+    def test_comma_and_twice_passes(self):
+        text = ("The cache keeps 10 entries, and it clears on save. A reader checks it first, and the writer waits. "
+                "Each miss costs a read.\n")
+        self.assertNotIn("same skeleton in a row", run_file(text)[1])
+
     def test_varied_openers_pass(self):
         text = "The cache keeps 10 entries. A read checks it first and the writer clears it on save.\n"
         self.assertNotIn("same skeleton in a row", run_file(text)[1])
@@ -320,6 +333,22 @@ class Density(unittest.TestCase):
             self.assertIn("a.md:3: check: closing restatement", out)
             self.assertIn("a.md: tells: 1 in 11 words", out)
             self.assertNotIn("a.md:1:", out)
+
+    def test_staged_paragraph_checks_skip_committed_lines(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, "init", "-q")
+            path = os.path.join(repo, "a.md")
+            with open(path, "w", encoding="utf-8", newline="\n") as file:
+                file.write("The build caches the restore step. This keeps the build fast.\n")
+            git(repo, "add", "a.md")
+            git(repo, "commit", "-qm", "x")
+            with open(path, "a", encoding="utf-8", newline="\n") as file:
+                file.write("\nA clean build takes 4 minutes.\n")
+            git(repo, "add", "a.md")
+
+            _, out = run("--staged", cwd=repo)
+
+            self.assertNotIn("closing restatement", out)
 
 
 class Fences(unittest.TestCase):
