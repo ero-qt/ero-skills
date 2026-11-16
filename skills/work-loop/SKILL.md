@@ -35,9 +35,7 @@ In the read-back, give the size of the change and the loop level in 1 line with 
 | medium | A new type that isn't public, several behaviors or a change to the public surface | new option, refactor across files |
 | large | New feature, new public type, new dependency, new tool or more than about 300 lines | a slice of a feature |
 
-The `loop` knob adds or drops stages. [references/stages.md](references/stages.md) lists the stages of each size at each level, what each one does and the proof it writes to the ledger. Change the size or the level only when the user says so.
-
-A trivial change gets no research, plan or review.
+The `loop` knob adds or drops stages. [references/stages.md](references/stages.md) lists the stages of each size at each level, what each one does and the proof it writes to the ledger. [references/strict.md](references/strict.md) has who runs each stage and how to resume. Change the size or the level only when the user says so.
 
 ## Knobs
 

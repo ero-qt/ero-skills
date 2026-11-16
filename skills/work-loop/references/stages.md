@@ -1,12 +1,12 @@
 # Stages
 
-The size of a commit picks its stages and the `loop` knob adds or drops some. Each stage ends with a proof. Write that proof to the ledger as 1 line before you move on:
+The size of a commit picks its stages and the `loop` knob adds or drops some. Each stage ends with a proof. Write that proof to the ledger as 1 line before you move on. The proof column below shows each record as `<stage>: <proof>`, and `ledger.js` takes the stage and the proof as separate arguments:
 
 ```bash
 node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expected 0 but was 1"
 ```
 
-`ledger.js show` prints the records of the commit in progress. The commit guard reads the `docs` records. At `loop strict` a missing docs reason stops the commit.
+`ledger.js show` prints the records of the commit in progress. The commit guard reads the `docs` records. At `loop strict` a missing docs reason stops the commit. [strict.md](strict.md) has who runs each stage and how a stopped commit goes on.
 
 ## Stages per size
 
@@ -18,7 +18,7 @@ node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expec
 | State check | yes | yes | yes | yes |
 | Plan and research | | | yes, inline | yes, agent |
 | Red test | | yes | yes | yes |
-| Implement and CI commands | yes | yes | yes | yes |
+| Implement | yes | yes | yes | yes |
 | Adversarial tests | | | S | yes |
 | Simplify | | S | yes | yes |
 | House style | tools only | yes | yes | yes |
@@ -37,18 +37,18 @@ node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expec
 
 | Stage | What happens | Proof for the ledger |
 |---|---|---|
-| Slice plan | Write the goal as 1 result someone can see ("the tool reads X and prints Y"), the rules for every commit and the commits in order, each with its size and first failing test. Also write down what's out of scope. For a new repo, suggest a readme, changelog, agents file, license and CI once. The user says Go. | `plan: <path>, 5 commits` |
+| Slice plan | Write the goal as 1 result someone can see ("the tool reads X and prints Y"), the rules for every commit and the commits in order, each with its size and first failing test. Also write down what's out of scope. For a new repo, suggest a readme, changelog, agents file, license and CI once. [slice-plan.md](slice-plan.md) has the form. The user says Go. | `slice: <path>, 5 commits` |
 | State check | Run `state.sh`. The tree doesn't have edits you didn't make. | `state: ok, 0 behind` |
 | Plan and research | Read the touched files with their callers, tests and siblings. Look for a maintained package, a standard file format or a tool that already does the job. Give the size of both ways in lines. List the files, the public shape, the failing tests and what each one pins. "Searched X and didn't find anything" counts as research. | `plan: 4 files, 6 tests, 3 sources` |
-| Red test | Write the tests in their own edit and run them. A compile error isn't red, so stub the code first. A test that passes on its first run gets rewritten. | the failing assertion, quoted |
-| Implement | Write the least code that passes. Run the commands CI runs, word for word, each into a log file. | the last line of each command |
+| Red test | Write the tests in their own edit and run them. A compile error isn't red, so stub the code first. A test that passes on its first run gets rewritten. | `red: <the failure line, word for word>` |
+| Implement | Write the least code that passes. Run the commands CI runs, word for word, each into a log file. | `green: <the last line of each command>` |
 | Adversarial tests | A fresh agent writes tests for what most likely breaks: empty, huge and odd input, order, partial state, every way to fail and any rule of the spec without a test. A new test that fails is a bug in the code, so fix the code. | `adv: +9 tests, 2 bugs fixed` |
 | Simplify | Go over the diff for what can go: a helper with 1 caller, an option nobody asked for, checks for what can't happen, code a package or standard file could replace. Give both sizes for each cut. | `simplify: -41 lines` or `simplify: none` with what you checked |
-| House style | Run the repo's formatter and linter. Then compare each touched part with its sibling: same names, order and layout. | `style: format 0, sibling 3 files` |
+| House style | Run the repo's formatter and linter. Then check the diff against the house brief line by line and compare each touched part with its sibling: same names, order and layout. | `style: format 0, lint 0, brief 14/14, sibling 3 files` |
 | Docs | Check whether the repo wants docs in the same commit, through its agents file, its contributing rules or an existing changelog. Then touch the changelog, readme, agents file and package metadata as needed. | `docs: changelog +1` or `docs: none: <reason>` |
-| Review | Read-only agents with no chat context. 1 agent works through the checklist. 3 agents split it into correctness against the spec, design (reuse, smaller ways, API shape, parameter names and order) and prose. Pass the model by name. | `review: 7 findings, 4 above nit` |
-| Fix | Judge each finding on its merits. Fix a real one, with a test when behavior changes. Skip a wrong one with 1 line on why. Run CI's commands and the prose check again. | `fix: 3 fixed, 1 skipped` |
-| Driver verify | Do this yourself. The staged paths match the plan, nothing foreign is staged, CI's commands pass and the end-to-end run works on the real thing. | the last lines of the commands |
+| Review | Read-only agents with no chat context. 1 agent works through the checklist. 3 agents split it into correctness against the spec, design (reuse, smaller ways, API shape, parameter names and order) and prose. Pass the model by name. | `review: 7 findings, 4 above nit`, or `review: inline, 7 findings` without agents |
+| Fix | Judge each finding on its merits. Fix a real one, with a test when behavior changes. Skip a wrong one with 1 line on why. Run CI's commands and the prose check again. | `fix: 3 fixed, 1 skipped` or `fix: none, 0 findings above nit` |
+| Driver verify | Do this yourself. The staged paths match the plan, nothing foreign is staged, CI's commands pass and the end-to-end run works on the real thing. | `verify: <the last line of each command>` |
 | Gate | Show the commit in the gate shape of SKILL.md. At `autonomy: auto`, commit without asking. | `gate: approved` or `gate: auto` |
 | Record | Commit and tick the commit in the plan. | `commit: a1b2c3d` |
 
