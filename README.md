@@ -5,7 +5,7 @@ Skills for Claude Code that make it work on a repository like a careful contribu
 ## Install
 
 ```
-/plugin marketplace add ero-qt/skills
+/plugin marketplace add ero-qt/ero-skills
 /plugin install repo-writing@ero-qt-skills
 /plugin install code-comments@ero-qt-skills
 /plugin install terse-replies@ero-qt-skills
