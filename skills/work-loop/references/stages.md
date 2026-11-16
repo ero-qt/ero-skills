@@ -39,15 +39,15 @@ node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expec
 |---|---|---|
 | Slice plan | Write the goal as 1 result someone can see ("the tool reads X and prints Y"), the rules for every commit and the commits in order, each with its size and first failing test. Also write down what's out of scope. For a new repo, suggest a readme, changelog, agents file, license and CI once. [slice-plan.md](slice-plan.md) has the form. The user says Go. | `slice: <path>, 5 commits` |
 | State check | Run `state.sh`. The tree doesn't have edits you didn't make. | `state: ok, 0 behind` |
-| Plan and research | Read the touched files with their callers, tests and siblings. Look for a maintained package, a standard file format or a tool that already does the job. Give the size of both ways in lines. List the files, the public shape, the failing tests and what each one pins. "Searched X and didn't find anything" counts as research. | `plan: 4 files, 6 tests, 3 sources` |
-| Red test | Write the tests in their own edit and run them. A compile error isn't red, so stub the code first. A test that passes on its first run gets rewritten. | `red: <the failure line, word for word>` |
-| Implement | Write the least code that passes. Run the commands CI runs, word for word, each into a log file. | `green: <the last line of each command>` |
-| Adversarial tests | A fresh agent writes tests for what most likely breaks: empty, huge and odd input, order, partial state, every way to fail and any rule of the spec without a test. A new test that fails is a bug in the code, so fix the code. | `adv: +9 tests, 2 bugs fixed` |
-| Simplify | Go over the diff for what can go: a helper with 1 caller, an option nobody asked for, checks for what can't happen, code a package or standard file could replace. Give both sizes for each cut. | `simplify: -41 lines` or `simplify: none` with what you checked |
-| House style | Run the repo's formatter and linter. Then check the diff against the house brief line by line and compare each touched part with its sibling: same names, order and layout. | `style: format 0, lint 0, brief 14/14, sibling 3 files` |
-| Docs | Check whether the repo wants docs in the same commit, through its agents file, its contributing rules or an existing changelog. Then touch the changelog, readme, agents file and package metadata as needed. | `docs: changelog +1` or `docs: none: <reason>` |
-| Review | Read-only agents with no chat context. 1 agent works through the checklist. 3 agents split it into correctness against the spec, design (reuse, smaller ways, API shape, parameter names and order) and prose. Pass the model by name. | `review: 7 findings, 4 above nit`, or `review: inline, 7 findings` without agents |
-| Fix | Judge each finding on its merits. Fix a real one, with a test when behavior changes. Skip a wrong one with 1 line on why. Run CI's commands and the prose check again. | `fix: 3 fixed, 1 skipped` or `fix: none, 0 findings above nit` |
+| Plan and research | Research the change and plan it before any code exists. [Brief](stage-briefs.md#plan) | `plan: 4 files, 6 tests, 3 sources` |
+| Red test | Write the failing tests of the plan and nothing else. [Brief](stage-briefs.md#red) | `red: <the failure line, word for word>` |
+| Implement | Write the least code that makes the red tests pass. [Brief](stage-briefs.md#implement) | `green: <the last line of each command>` |
+| Adversarial tests | A fresh agent writes tests for what's most likely wrong and fixes the code when one fails. [Brief](stage-briefs.md#adversarial) | `adv: +9 tests, 2 bugs fixed` |
+| Simplify | Cut what can go from the diff, with both sizes for each cut. [Brief](stage-briefs.md#simplify) | `simplify: -41 lines` or `simplify: none` with what you checked |
+| House style | Run the formatter and the linter, then check the diff against the house brief and each sibling. [Brief](stage-briefs.md#style) | `style: format 0, lint 0, brief 14/14, sibling 3 files` |
+| Docs | Update the docs the repo wants in the same commit. [Brief](stage-briefs.md#docs) | `docs: changelog +1` or `docs: none: <reason>` |
+| Review | 1 read-only agent with no chat context works through the checklist or 3 split it into correctness, design and prose. [Brief](stage-briefs.md#review) | `review: 7 findings, 4 above nit`, or `review: inline, 7 findings` without agents |
+| Fix | Judge each finding above `nit` and fix the real ones. [Brief](stage-briefs.md#fix) | `fix: 3 fixed, 1 skipped` or `fix: none, 0 findings above nit` |
 | Driver verify | Do this yourself. The staged paths match the plan, nothing foreign is staged, CI's commands pass and the end-to-end run works on the real thing. | `verify: <the last line of each command>` |
 | Gate | Show the commit in the gate shape of SKILL.md. At `autonomy: auto`, commit without asking. | `gate: approved` or `gate: auto` |
 | Record | Commit and tick the commit in the plan. | `commit: a1b2c3d` |
@@ -63,7 +63,7 @@ node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expec
 
 ## End of the branch
 
-The review of SKILL.md §7 also gets the slice plan. It finds what a review of 1 commit can't: siblings that drifted apart, a type that lost its user, docs that match commit 2 but not commit 5.
+The slice plan lets the review of SKILL.md §7 find what a review of 1 commit can't, like siblings that drifted apart, a type that lost its user or docs that match commit 2 but not commit 5.
 
 ## A stretch on auto
 

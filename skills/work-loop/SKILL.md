@@ -149,7 +149,7 @@ Fixups and scope:
 Run it before every PR, also at `autonomy: auto`. Skip it only when the user tells you to or when the branch has only trivial commits.
 
 - Run the reviewer on `review-model`. Say in chat which model and effort it runs at, then `Review?`, except at `autonomy: auto`.
-- The reviewer is one read-only agent with no chat context. Give it the issue text, the full diff against the base and the test command. Tell it not to edit anything and not to start long processes. Have it work through [references/review-checklist.md](references/review-checklist.md) and return a verdict line and a table of severity, location, finding and the input that shows it.
+- The reviewer is one read-only agent with no chat context. Give it the issue text, the full diff against the base, the test command and any slice plan. Tell it not to edit anything or start long processes. Have it work through [references/review-checklist.md](references/review-checklist.md) and return a verdict line and a table of severity, location, finding and the input that shows it.
 - Judge every finding on its merits. Rebut a wrong but plausible one instead of appeasing it. Real findings go back through the commit loop, test first.
 - When a reviewer flags one site, rerun that criterion over the whole function and diff.
 

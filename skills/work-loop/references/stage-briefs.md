@@ -1,6 +1,6 @@
 # Stage briefs
 
-Each section is the brief of 1 stage agent. The `commit-cycle` workflow starts the plugin's `stage-<section>` agent for each stage, like `work-loop:stage-red`, and that agent reads its section here. The stage agents come with repo-writing and code-comments loaded. Without the workflow, start a subagent for each stage and paste its section into the prompt, below the inputs.
+Each section is the brief of 1 stage agent. The `commit-cycle` workflow starts the plugin's `stage-<section>` agent for each stage, like `work-loop:stage-red`, and that agent reads its section here. The stage agents come with repo-writing and code-comments loaded. Without the workflow, start the same agent for each stage with the inputs below. Paste the section into the prompt only when the plugin's agents aren't there.
 
 ## Every stage
 

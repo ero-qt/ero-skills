@@ -16,13 +16,11 @@ Pick how the agents run by what the session has:
 
 Pass each agent its model by name, from the `plan-model`, `review-model` and `impl-model` knobs. Plan and research use `plan-model`, review uses `review-model` and the rest use `impl-model`.
 
+The size and level line of the read-back is the yes for the stage agents of each commit, so don't ask again per commit.
+
 ## Records
 
-Write 1 ledger record per stage, in order, from what the agent returned. The proof column of stages.md gives the stage and the text. The record is the proof, so don't write it before the stage is done:
-
-```bash
-node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expected 0 but was 1"
-```
+Write 1 ledger record per stage with `ledger.js add`, in order, from what the agent returned. The proof column of stages.md gives the stage and the text. The record is the proof, so don't write it before the stage is done.
 
 The first large commit of a branch writes a record for each of the 14 stages. Later commits skip `slice`. A stage that doesn't run for the size doesn't write anything.
 
@@ -47,4 +45,4 @@ Claude Code asks before the Write and Edit tools or a shell redirect change a fi
 
 ## Cost
 
-A large commit runs up to 11 agents and takes about 40 to 90 minutes. Strict on small and medium commits costs about 3 times as much as standard, which is why the size picks the stages and strict only fills the `S` cells.
+A large commit runs up to 11 agents. Strict adds agents to small and medium commits, so the size picks the stages and strict only fills the `S` cells.
