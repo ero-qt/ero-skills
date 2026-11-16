@@ -33,11 +33,12 @@ const CHANGELOG = /^(changelog|changes|history)(\.(md|markdown|rst|txt))?$/i;
 const DOC = /\.(md|markdown|rst|adoc)$|^docs?\//i;
 const TEST = /(^|\/)(tests?|__tests__|specs?)\/|(^|\/)[^/]+\.Tests?\/|(^|\/)(test_[^/]*|[^/]*_test\.[^/.]+|[^/]*\.(test|spec)\.[^/.]+)$/i;
 const CI = /^\.github\/|^\.circleci\/|^\.gitlab-ci\.ya?ml$|^azure-pipelines\.ya?ml$/i;
+const NO_DOCS = /(^|\/)(\.[^/]+|[^/]*[.-]lock(\.json|\.ya?ml)?|go\.sum|(licen[cs]e|copying)(\.[^/]*)?)$/i;
 
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
 
 function git(cwd, ...args) {
-    const result = spawnSync('git', args, { cwd, encoding: 'utf8' });
+    const result = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 30000 });
     return result.status === 0 ? result.stdout : null;
 }
 
@@ -387,7 +388,9 @@ function docsOn(knobs, dir) {
         return knobs.docs === 'on';
     }
 
-    return (git(dir, 'ls-files') || '').split(/\r?\n/).some((name) => CHANGELOG.test(name));
+    const names = git(dir, 'ls-files', '--full-name', '--', ':(top,icase,glob)changelog*', ':(top,icase,glob)changes*',
+        ':(top,icase,glob)history*');
+    return (names || '').split(/\r?\n/).some((name) => CHANGELOG.test(name));
 }
 
 function check(event) {
@@ -440,7 +443,7 @@ function check(event) {
 
     const knobs = readKnobs(workLoopDir);
     const source = staged.filter((name) => !DOC.test(name) && !CHANGELOG.test(path.posix.basename(name))
-        && !TEST.test(name) && !CI.test(name));
+        && !TEST.test(name) && !CI.test(name) && !NO_DOCS.test(name));
     const docStaged = staged.some((name) => DOC.test(name) || CHANGELOG.test(path.posix.basename(name)));
     if (source.length && !docStaged && docsOn(knobs, dir) && !hasLedgerReason(dir, 'docs', 'none')) {
         const detail = 'source changed and no doc is staged. Stage the changelog, readme or agents file change, '

@@ -302,6 +302,17 @@ class CommitGuard(unittest.TestCase):
                 self.stage(name, "x\n")
                 self.assertIsNone(self.guard())
 
+    # Lock files, dotfile config and license files never need a doc change, so they aren't logged as slips either.
+    def test_lock_dotfile_and_license_commits_pass(self):
+        self.set_knobs(docs="on", loop="standard")
+
+        for name in [".gitignore", "package-lock.json", ".editorconfig", "LICENSE", "web/yarn.lock"]:
+            with self.subTest(name=name):
+                self.git("reset", "-q")
+                self.stage(name, "x\n")
+                self.assertIsNone(self.guard())
+        self.assertEqual(self.slips(), [])
+
     # The default docs value `repo` turns the check on when the repo keeps a changelog.
     def test_docs_repo_is_on_with_a_changelog(self):
         self.set_knobs(loop="strict")
@@ -310,6 +321,14 @@ class CommitGuard(unittest.TestCase):
         self.stage("parser.py", "x = 1\n")
 
         self.assert_denied(self.guard(), "docs")
+
+    def test_docs_repo_finds_the_changelog_from_a_subfolder(self):
+        self.set_knobs(loop="strict")
+        self.stage("CHANGELOG.md", "# Changelog\n")
+        self.git("commit", "-q", "-m", "Add changelog")
+        self.stage("src/parser.py", "x = 1\n")
+
+        self.assert_denied(self.guard(cwd=os.path.join(self.repo, "src")), "docs")
 
     def test_docs_repo_is_off_without_a_changelog(self):
         self.set_knobs(loop="strict")
