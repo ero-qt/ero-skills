@@ -30,6 +30,8 @@ The first large commit of a branch writes a record for each of the 14 stages. La
 
 A stage that can't reach its proof stops the cycle. That happens when the red test passes on its first run, when a CI command still fails after implement, adversarial, simplify or fix, or when an agent doesn't return. Don't run the next stage. Fix the cause or show the user the stage, the reason and the last log lines.
 
+To run the stopped stage again, relaunch the workflow with `resumeFromRunId` and a resume note for that stage. Without the note the saved result comes back and the run stops at the same place.
+
 ## House brief
 
 Keep the house rules of a repo in `$(git rev-parse --git-common-dir)/work-loop/house.md`, 60 lines or fewer. Write it at the slice plan of the first branch, from the agents file, the editor and linter config, the CI commands, the corrections the user made in this repo and the defaults of these skills. Every stage agent gets its path, and the house style stage checks the diff against it line by line.
@@ -40,7 +42,7 @@ Claude Code asks before the Write and Edit tools or a shell redirect change a fi
 
 - At the start of each commit, write the inputs of the stage agents to the ledger as 1 `inputs` record next to the stage records, so a rerun after a crash doesn't have to dig them out of the chat.
 - A long or unattended run keeps a living plan file. [slice-plan.md](slice-plan.md) has its form. Write its path in the `slice` record.
-- A workflow run that stopped in the middle of a stage goes on with `resumeFromRunId`, the same arguments and `resumeNote` set to `{stage, note}` for that stage. The stages before it return their saved results without running again, as long as the session is the same one.
+- A workflow run that stopped goes on with `resumeFromRunId`, the same arguments and `resumeNotes` with a note for the stage that stopped, like `{"style": "the formatter already ran"}`. Keep the notes of earlier relaunches in it. The stages before return their saved results without running again, as long as the session is the same one.
 - After a compaction or a resume, run `ledger.js last` and read the plan file. The first stage without a record is where the commit goes on. Tell the agent of that stage that the tree may already have part of its work, so it keeps what's right instead of starting over.
 
 ## Cost

@@ -12,16 +12,16 @@ export const meta = {
 
 // args: subject, size, loop, spec, houseBrief, briefs (path of stage-briefs.md), ci (commands), base,
 // models ({plan, review, impl}, each {model, effort}), plan (the driver's plan for a medium commit) and
-// resumeNote ({stage, note} for the stage that stopped). Returns {status, records} plus {stage, reason} on a stop.
+// resumeNotes ({<stage>: note} for each stage that stopped). Returns {status, records} plus {stage, reason} on a stop.
 // The script can't write files, so the driver writes each record to the ledger.
 
 const SIZES = ['trivial', 'small', 'medium', 'large']
 const LOOPS = ['light', 'standard', 'strict']
 
 // The agent stages of the table in references/stages.md, by size. 'S' runs only at loop strict. A medium commit
-// plans inline, so the driver passes its plan in args.plan.
+// plans inline, so 'driver' means the driver passes its plan in args.plan.
 const TABLE = {
-  plan: ['', '', '', 'yes'],
+  plan: ['', '', 'driver', 'yes'],
   red: ['', 'yes', 'yes', 'yes'],
   implement: ['yes', 'yes', 'yes', 'yes'],
   adversarial: ['', '', 'S', 'yes'],
@@ -35,6 +35,7 @@ const text = { type: 'string' }
 const flag = { type: 'boolean' }
 const count = { type: 'integer', minimum: 0 }
 const list = (items) => ({ type: 'array', items })
+const filled = (items) => ({ ...list(items), minItems: 1 })
 const object = (properties, required = Object.keys(properties)) => ({ type: 'object', properties, required })
 
 const SCHEMAS = {
@@ -43,14 +44,19 @@ const SCHEMAS = {
     publicShape: text,
     tests: list(object({ name: text, pins: text })),
     risks: list(text),
-    research: { ...list(object({ source: text, date: text, finding: text })), minItems: 1 },
+    research: filled(object({ source: text, date: text, finding: text })),
   }),
   red: object({ command: text, tests: list(text), assertion: text }),
-  implement: object({ green: flag, commands: list(object({ command: text, lastLine: text })), staged: list(text) }),
+  implement: object({ green: flag, commands: filled(object({ command: text, lastLine: text })), staged: list(text) }),
   adversarial: object({ testsAdded: count, bugsFixed: list(object({ test: text, fix: text })), green: flag }),
   simplify: object({ cuts: list(object({ what: text, linesBefore: count, linesAfter: count })), checked: text, green: flag }),
   style: object({ format: count, lint: count, brief: object({ passed: count, total: count }), siblings: list(text), green: flag }),
-  docs: object({ docs: list(object({ file: text, change: text, none: text }, ['file'])) }),
+  docs: object({
+    docs: filled({
+      ...object({ file: text, change: text, none: text }, ['file']),
+      anyOf: [{ required: ['change'] }, { required: ['none'] }],
+    }),
+  }),
   review: object({
     verdict: text,
     findings: list(object({ severity: { enum: ['bug', 'design', 'prose', 'nit'] }, location: text, finding: text, trigger: text })),
@@ -77,9 +83,12 @@ function column(size, loop) {
   return index
 }
 
+function cell(stage) {
+  return TABLE[stage][column(args.size, args.loop)]
+}
+
 function runs(stage) {
-  const cell = TABLE[stage][column(args.size, args.loop)]
-  return cell === 'S' ? args.loop === 'strict' : cell !== ''
+  return cell(stage) === 'S' ? args.loop === 'strict' : !['', 'driver'].includes(cell(stage))
 }
 
 function inputs(stage, plan) {
@@ -94,8 +103,9 @@ function inputs(stage, plan) {
   if (plan) {
     lines.push(`Plan:\n${typeof plan === 'string' ? plan : JSON.stringify(plan, null, 2)}`)
   }
-  if (args.resumeNote && args.resumeNote.stage === stage) {
-    lines.push(`Resume note: ${args.resumeNote.note}`)
+  const note = args.resumeNotes && args.resumeNotes[stage]
+  if (note) {
+    lines.push(`Resume note: ${note}`)
   }
   return lines.join('\n\n')
 }
@@ -125,6 +135,9 @@ if (!LOOPS.includes(args.loop)) {
 }
 if (!Array.isArray(args.ci) || args.ci.length === 0) {
   return stop('start', 'no CI commands to run')
+}
+if (cell('plan') === 'driver' && !args.plan) {
+  return stop('start', "a medium commit needs the driver's plan in plan")
 }
 if (runs('review') && !(models.review && models.review.model)) {
   return stop('start', 'review agents need the review model by name in models.review.model')
@@ -183,11 +196,11 @@ if (runs('simplify')) {
   }
   const removed = simplified.cuts.reduce((sum, cut) => sum + cut.linesBefore - cut.linesAfter, 0)
   record('simplify', simplified.cuts.length
-    ? `-${removed} lines, ${simplified.cuts.length} cuts`
+    ? `${removed > 0 ? `-${removed}` : `+${-removed}`} lines, ${simplified.cuts.length} cuts`
     : `none, checked ${simplified.checked}`)
 }
 
-const toolsOnly = TABLE.style[column(args.size, args.loop)] === 'tools'
+const toolsOnly = cell('style') === 'tools'
 const stylePrompt = inputs('style', plan) + (toolsOnly ? '\n\nScope: tools only. Run the formatter and the linter and skip the brief and the siblings.' : '')
 const styled = await agent(stylePrompt, options('style', 'style', models.impl, 'Harden'))
 if (!styled) {
@@ -202,7 +215,11 @@ const documented = await agent(inputs('docs', plan), options('docs', 'docs', mod
 if (!documented) {
   return stop('docs', "the agent didn't return")
 }
-record('docs', documented.docs.map((doc) => (doc.change ? `${doc.file} ${doc.change}` : `${doc.file} none: ${doc.none}`)).join(', '))
+// The commit guard takes a docs record that starts with `none:` as the reason for a commit without a doc change.
+const changed = documented.docs.some((doc) => doc.change)
+record('docs', changed
+  ? documented.docs.map((doc) => (doc.change ? `${doc.file} ${doc.change}` : `${doc.file} none: ${doc.none}`)).join(', ')
+  : `none: ${documented.docs.map((doc) => `${doc.file}: ${doc.none}`).join(', ')}`)
 
 if (runs('review')) {
   phase('Review')

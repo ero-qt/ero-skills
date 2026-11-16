@@ -125,6 +125,20 @@ class Stages(unittest.TestCase):
         self.assertEqual(labels(run(size="medium", plan="driver plan")),
                          ["red", "implement", "simplify", "style", "docs", "review:all", "fix"])
 
+    def test_medium_gives_the_driver_plan_to_the_stages(self):
+        self.assertIn("driver plan", call(run(size="medium", plan="driver plan"), "red")["prompt"])
+
+    def test_medium_without_the_driver_plan_stops_before_any_agent(self):
+        output = run(size="medium")
+
+        self.assertEqual(output["result"]["status"], "stopped")
+        self.assertIn("plan", output["result"]["reason"])
+        self.assertEqual(output["calls"], [])
+
+    # Light runs the small column for a medium commit and that column doesn't have a plan.
+    def test_medium_at_light_runs_without_a_plan(self):
+        self.assertEqual(run(size="medium", loop="light")["result"]["status"], "done")
+
     def test_medium_at_strict_adds_adversarial(self):
         self.assertEqual(labels(run(size="medium", loop="strict", plan="driver plan")),
                          ["red", "implement", "adversarial", "simplify", "style", "docs", "review:all", "fix"])
@@ -179,7 +193,19 @@ class Records(unittest.TestCase):
     def test_docs_without_changes_records_the_reason(self):
         replies = replies_with(docs={"docs": [{"file": "CHANGELOG.md", "none": "test only"}]})
 
-        self.assertEqual(proof(run(replies=replies), "docs"), "CHANGELOG.md none: test only")
+        self.assertEqual(proof(run(replies=replies), "docs"), "none: CHANGELOG.md: test only")
+
+    def test_docs_without_changes_lists_every_reason(self):
+        replies = replies_with(docs={"docs": [{"file": "CHANGELOG.md", "none": "test only"},
+                                              {"file": "README.md", "none": "internal"}]})
+
+        self.assertEqual(proof(run(replies=replies), "docs"), "none: CHANGELOG.md: test only, README.md: internal")
+
+    def test_simplify_that_adds_lines_records_a_plus(self):
+        replies = replies_with(simplify={"cuts": [{"what": "split the parse loop", "linesBefore": 4, "linesAfter": 7}],
+                                         "checked": "helpers", "green": True})
+
+        self.assertEqual(proof(run(replies=replies), "simplify"), "+3 lines, 1 cuts")
 
 
 @unittest.skipIf(shutil.which("node") is None, "node is not installed")
@@ -290,6 +316,28 @@ class Agents(unittest.TestCase):
                              "large", "standard", "main"]:
                     self.assertIn(text, item["prompt"])
 
+    # The runtime checks each reply against its schema, so a schema that goes away lets a broken reply through.
+    def test_every_agent_gets_a_schema_for_its_reply(self):
+        output = run()
+
+        for item in output["calls"]:
+            with self.subTest(label=item["label"]):
+                self.assertEqual(item["schema"]["type"], "object")
+                self.assertTrue(item["schema"]["required"])
+
+    # An empty list would give an empty proof, which ledger.js doesn't take.
+    def test_lists_behind_a_proof_need_at_least_1_item(self):
+        output = run()
+
+        self.assertEqual(call(output, "plan")["schema"]["properties"]["research"]["minItems"], 1)
+        self.assertEqual(call(output, "implement")["schema"]["properties"]["commands"]["minItems"], 1)
+        self.assertEqual(call(output, "docs")["schema"]["properties"]["docs"]["minItems"], 1)
+
+    def test_docs_entry_needs_a_change_or_a_reason(self):
+        entry = call(run(), "docs")["schema"]["properties"]["docs"]["items"]
+
+        self.assertEqual(entry["anyOf"], [{"required": ["change"]}, {"required": ["none"]}])
+
     def test_later_stages_get_the_plan_of_the_plan_stage(self):
         self.assertIn("test_empty_file", call(run(), "red")["prompt"])
 
@@ -316,7 +364,7 @@ class Resume(unittest.TestCase):
     # The note goes only to the stage that stopped, so the stages before it keep their saved results.
     def test_resume_note_goes_only_to_its_stage(self):
         plain = run()["calls"]
-        resumed = run(resumeNote={"stage": "simplify", "note": "the helper is already inlined"})["calls"]
+        resumed = run(resumeNotes={"simplify": "the helper is already inlined"})["calls"]
 
         for before, after in zip(plain, resumed):
             if after["label"] == "simplify":
@@ -324,6 +372,20 @@ class Resume(unittest.TestCase):
                 self.assertIn("the helper is already inlined", after["prompt"])
             else:
                 self.assertEqual(before["prompt"], after["prompt"])
+
+    # A 2nd stop keeps the note of the 1st, so the stages that already ran on the 1st resume keep their saved results.
+    def test_resume_notes_of_2_stages_leave_the_other_prompts_alone(self):
+        first = run(resumeNotes={"adversarial": "2 tests are already written"})["calls"]
+        second = run(resumeNotes={"adversarial": "2 tests are already written",
+                                  "style": "the formatter already ran"})["calls"]
+
+        for before, after in zip(first, second):
+            if after["label"] == "style":
+                self.assertIn("the formatter already ran", after["prompt"])
+                self.assertNotEqual(before["prompt"], after["prompt"])
+            else:
+                self.assertEqual(before["prompt"], after["prompt"])
+        self.assertIn("2 tests are already written", call({"calls": second}, "adversarial")["prompt"])
 
     def test_meta_is_named_and_described(self):
         meta = run()["meta"]

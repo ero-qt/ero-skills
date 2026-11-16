@@ -277,6 +277,17 @@ class CommitGuard(unittest.TestCase):
 
         self.assert_denied(self.guard(), "docs")
 
+    # The commit-cycle workflow writes the docs record, so its form has to clear this check.
+    def test_docs_record_of_the_commit_cycle_clears_the_docs_check(self):
+        from test_commit_cycle import proof, replies_with, run
+
+        self.set_knobs(docs="on", loop="strict")
+        self.stage("parser.py", "x = 1\n")
+        replies = replies_with(docs={"docs": [{"file": "CHANGELOG.md", "none": "internal refactor"}]})
+        self.ledger("docs", proof(run(replies=replies), "docs"))
+
+        self.assertIsNone(self.guard())
+
     def test_ledger_record_without_a_reason_doesnt_count(self):
         self.set_knobs(docs="on", loop="strict")
         self.stage("parser.py", "x = 1\n")
