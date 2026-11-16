@@ -39,7 +39,7 @@ The plugin's hooks run for the whole session, whether this skill is loaded or no
 
 ## Knobs
 
-The user changes a knob by saying its phrase on a line of its own, like `loop strict`. The terse phrases also work inside a sentence. The plugin's prompt hook saves the knob and shows all knobs in 1 line, like `knobs: terse full, loop standard, gated`.
+The user changes a knob by saying its phrase on a line of its own, like `loop strict`. The terse phrases also work inside a sentence. `auto on` only works as the whole message, because a subagent report also comes in as a prompt. The plugin's prompt hook saves the knob and shows all knobs in 1 line, like `knobs: terse full, loop standard, gated`.
 
 | Knob | Phrase | Default | Skill |
 |---|---|---|---|
@@ -67,7 +67,7 @@ node "${CLAUDE_SKILL_DIR}/scripts/knobs.js" --data "${CLAUDE_PLUGIN_DATA}" set r
 node "${CLAUDE_SKILL_DIR}/scripts/knobs.js" --data "${CLAUDE_PLUGIN_DATA}" --session "${CLAUDE_SESSION_ID}" show
 ```
 
-`set` doesn't change `autonomy`, because only the user's own words turn auto mode on.
+`set` refuses `autonomy`, because only the user's own words turn auto mode on. When the user asks for auto mode in other words, ask them to send `auto on` as a message of its own.
 
 
 ## Slips

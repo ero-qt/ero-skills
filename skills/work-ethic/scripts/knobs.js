@@ -67,6 +67,8 @@ function validValue(name, words) {
 
 // Finds the knobs a prompt sets. A terse phrase counts anywhere in the prompt, as in the terse-replies skill.
 // Any other phrase has to be a line of its own, because words like "docs on" turn up in normal requests.
+// `auto on` has to be the whole prompt, because a subagent report or a message from another session also
+// comes in as a prompt.
 function findChanges(prompt) {
     const changes = {};
     const text = prompt.toLowerCase();
@@ -79,17 +81,20 @@ function findChanges(prompt) {
         changes.terse = terse[1];
     }
 
-    for (const line of prompt.split(/\r?\n/)) {
+    const lines = prompt.trim().split(/\r?\n/);
+    for (const line of lines) {
         const words = line.trim().replace(/[.!]+$/, '').split(/\s+/).filter(Boolean);
         if (words.length < 2) {
             continue;
         }
 
-        const first = words[0].toLowerCase();
-        if (first === 'auto' && words.length === 2 && ['on', 'off'].includes(words[1].toLowerCase())) {
-            changes.autonomy = words[1].toLowerCase() === 'on' ? 'auto' : 'gated';
+        const phrase = words.join(' ').toLowerCase();
+        if (phrase === 'auto off' || (phrase === 'auto on' && lines.length === 1)) {
+            changes.autonomy = phrase === 'auto on' ? 'auto' : 'gated';
             continue;
         }
+
+        const first = words[0].toLowerCase();
 
         const model = first.match(/^(review|plan|impl)(-model)?$/);
         if (model && !model[2] && words[1].toLowerCase() === 'model') {

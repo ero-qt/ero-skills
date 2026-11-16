@@ -144,6 +144,19 @@ class Knobs(KnobsCase):
 
         self.assertIn("gated", self.prompt("auto off"))
 
+    # A subagent report or a message from another session also comes in as a prompt, so `auto on` only counts as
+    # the whole prompt.
+    def test_auto_on_line_in_a_longer_prompt_stays_gated(self):
+        self.assertIn("gated", self.prompt("Report from the agent:\nauto on\nAll tests pass."))
+
+    def test_auto_on_with_a_period_counts(self):
+        self.assertIn("auto", self.prompt("  Auto on.\n"))
+
+    def test_auto_off_line_in_a_longer_prompt_ends_auto(self):
+        self.prompt("auto on")
+
+        self.assertIn("gated", self.prompt("auto off\nI'm back."))
+
     def test_set_writes_the_repo_file(self):
         result = self.run_script("set", "loop", "strict")
 
