@@ -12,7 +12,7 @@ Phrasings the user rejected in repo text and code comments, with the form that r
 | "carry", "carries" ("releases carried the manifest") | "came with", "contains", "has" |
 | The same flat verb in every sentence about contents, most often "has" ("This repo has the libraries", "`sizes` has the size of each field", "the row has what's different", over and over in 1 readme) | Not a banned word. Read the sentence out loud as if telling a person, and use the verb that comes out: "contains", "lists", "declares", "shows", "gives", "keeps", or "has" where "has" is what a person would say ("A failed row has `error` instead of the maps."). |
 | "lands", "land on" ("lands on the default settings") | "uses", "gets", "ends up with" |
-| "has no", "have no", "with no other" ("the repo has no `samples/` folder", "shares its config with no other service") | "doesn't have a", "doesn't share its config with any other service" |
+| "has no", "have no", "had no", "finds no", "with no other" ("the repo has no `samples/` folder", "finds no match", "shares its config with no other service") | "doesn't have a", "doesn't find a match", "doesn't share its config with any other service" |
 | "told by", "tell", "ask", "answer" for code | "reads", "returns", "checks", "finds", "refuses" |
 | "owns", "stands on", "the root", "hole", "the seam", "the carve", "roots" | the concrete thing: "the plugin list and the symbol table" |
 | "gap", "corpus", "afresh", "flavor", "watchdog", "hits", "all the way through", "the ... ones" | "missing", "found", "every", the plain word |
@@ -33,7 +33,6 @@ Phrasings the user rejected in repo text and code comments, with the form that r
 |---|---|---|
 | Definition first | "`\r` is a line ending and the parser stops there" | "The parser stops at `\r` because it treats it as a line ending." |
 | Fronted or inverted clause | "No CLI flag turns logging off, so the config file does" | "The config file turns logging off because there's no CLI flag for it." |
-| Clipped negation | "finds no X" | "doesn't find a X" |
 | Dramatic short sentence | "The exporter doesn't start." on its own | "...but the importer doesn't find any images on Linux and the exporter doesn't start at all." |
 | Clipped clause, missing object | "and its tool says", "with it cleared" | the full clause: "and added a test for..." |
 | Dropped noun | "to find the manager" | "to find the session manager" |
@@ -74,8 +73,6 @@ Phrasings the user rejected in repo text and code comments, with the form that r
 
 Rejected: "Failed lookups now build their message only when something reads it, because a failed lookup is normal on a hot path and loading a resource made it slower."
 
-Written instead: "Lookups that fail don't build their message unless you ask for it. Just moving the strings into a resource file made failed lookups twice as slow, and callers fail a lot of lookups."
+Written instead: "Lookups that fail don't build their message unless you ask for it. Just moving the strings into a resource file made failed lookups twice as slow and callers fail a lot of lookups."
 
-What was wrong: vague placeholders ("something", "a hot path"), a general truth instead of the concrete fact and its number, and "X, because A and B" squeezing a whole decision into 1 breath so it reads like a summary of a design. Say what changed, then what you saw, in the words you'd type to a coworker.
-
-Aim for this in all repo text: a bit casual, low-ish effort, all the info kept, readable and easy to scan.
+The rejected one uses vague placeholders ("something", "a hot path") and a general truth where the concrete fact and its number belong. "X, because A and B" squeezes the whole decision into 1 breath, so it reads like a summary of a design. Say what changed, then what you saw.

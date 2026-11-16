@@ -70,8 +70,10 @@ class CheckRules(unittest.TestCase):
         self.assertIn("exclamation mark", run("--text", "This makes it much faster!")[1])
 
     def test_clipped_negation_is_flagged(self):
-        _, out = run("--text", "the repo has no samples folder and shares its config with no other service")
-        self.assertIn("'has no' or 'no other'", out)
+        for text in ("the repo has no samples folder", "the tests have no fixtures", "the old build had no cache",
+                     "shares its config with no other service"):
+            with self.subTest(text=text):
+                self.assertIn("'has no' or 'no other'", run("--text", text)[1])
 
     def test_negation_with_doesnt_passes(self):
         self.assertEqual(run("--text", "the repo doesn't have a samples folder")[1], "0 hard, 0 to check\n")
