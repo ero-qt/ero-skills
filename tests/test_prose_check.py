@@ -88,6 +88,13 @@ class CheckRules(unittest.TestCase):
         self.assertEqual(run("--text", "rename `names_lookup` to something")[1], "0 hard, 0 to check\n")
 
 
+def load_script():
+    spec = importlib.util.spec_from_file_location("prose_check", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def run_file(text, name="draft.md"):
     with tempfile.TemporaryDirectory() as folder:
         path = os.path.join(folder, name)
@@ -142,22 +149,22 @@ class SpecRules(unittest.TestCase):
             self.assertNotIn("a.md:1: check: 'now'", out)
 
     def test_skill_and_tells_files_get_only_the_hard_rules(self):
-        text = "The build is robust and caches the restore step — every time.\n"
+        text = "#" * 2 + " Heading\n\nThe build is robust and caches the restore step — every time.\n"
         for name in ("SKILL.md", "tells.md"):
             with self.subTest(name=name):
                 code, out = run_file(text, name)
                 self.assertEqual(code, 1)
                 self.assertIn("hard: em or en dash", out)
                 self.assertNotIn("jargon or sales word", out)
+                self.assertNotIn("heading bigger than h3", out)
+
+    def test_readme_path_with_backslashes_keeps_its_headings(self):
+        findings = []
+        load_script().check_line("docs\\README.md", 1, "## Usage", True, findings)
+        self.assertEqual(findings, [])
 
 
 class Explain(unittest.TestCase):
-    def load(self):
-        spec = importlib.util.spec_from_file_location("prose_check", SCRIPT)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-
     def test_explain_prints_the_row_of_the_rule(self):
         code, out = run("--explain", "participle tail")
         self.assertEqual(code, 0)
@@ -171,7 +178,7 @@ class Explain(unittest.TestCase):
         self.assertIn("no such rule", out)
 
     def test_every_rule_has_a_row_in_tells(self):
-        module = self.load()
+        module = load_script()
         rules = [rule for rule, _ in module.HARD + module.CHECK + module.MARKDOWN + module.COMMENT_ONLY]
         rules += ["NUL byte in a text file", "dramatic short sentence", "decision packed into 1 sentence",
                   "hedge stack", "same skeleton in a row", "closing restatement", "flat sentence length",

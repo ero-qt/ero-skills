@@ -162,18 +162,17 @@ def strip_code(line):
 
 
 def check_line(where, number, text, markdown, findings, comment=False):
-    # Heading sizes only matter in PR, issue and comment bodies, not in files with their own heading format.
-    if markdown and not where.rsplit("/", 1)[-1].upper().startswith(("README", "CHANGELOG", "SKILL")):
-        for rule, pattern in MARKDOWN:
-            if pattern.search(text):
-                findings.append((where, number, "check", rule, text.strip()))
-
     prose = strip_code(text)
     for rule, pattern in HARD:
         if pattern.search(prose):
             findings.append((where, number, "hard", rule, text.strip()))
     if quotes_bad_examples(where):
         return
+    # Heading sizes only matter in PR, issue and comment bodies, not in files with their own heading format.
+    if markdown and not base_name(where).upper().startswith(("README", "CHANGELOG")):
+        for rule, pattern in MARKDOWN:
+            if pattern.search(text):
+                findings.append((where, number, "check", rule, text.strip()))
     for rule, pattern in CHECK + (COMMENT_ONLY if comment else []):
         matches = [match.group(0).lower() for match in pattern.finditer(prose)]
         if rule == "British spelling":
@@ -290,8 +289,13 @@ def check_verbs(where, lines, findings):
                              f"'{verb}' {len(hits)} times in {total} words"))
 
 
+def base_name(where):
+    """Returns the file name of a path, which can use either kind of slash."""
+    return where.replace("\\", "/").rsplit("/", 1)[-1]
+
+
 def quotes_bad_examples(where):
-    return where.replace("\\", "/").rsplit("/", 1)[-1] in QUOTES_BAD_EXAMPLES
+    return base_name(where) in QUOTES_BAD_EXAMPLES
 
 
 def density(where, lines, findings):
