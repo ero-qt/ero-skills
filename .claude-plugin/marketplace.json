@@ -16,7 +16,10 @@
       "license": "0BSD",
       "skills": [
         "./skills/repo-writing"
-      ]
+      ],
+      "experimental": {
+        "evals": "evals/repo-writing"
+      }
     },
     {
       "name": "code-comments",
@@ -26,7 +29,10 @@
       "license": "0BSD",
       "skills": [
         "./skills/code-comments"
-      ]
+      ],
+      "experimental": {
+        "evals": "evals/code-comments"
+      }
     },
     {
       "name": "terse-replies",
@@ -38,6 +44,9 @@
         "./skills/terse-replies"
       ],
       "outputStyles": "./skills/terse-replies/output-styles/terse.md",
+      "experimental": {
+        "evals": "evals/terse-replies"
+      },
       "hooks": {
         "UserPromptSubmit": [
           {
@@ -70,7 +79,10 @@
       "license": "0BSD",
       "skills": [
         "./skills/work-loop"
-      ]
+      ],
+      "experimental": {
+        "evals": "evals/work-loop"
+      }
     }
   ]
 }
