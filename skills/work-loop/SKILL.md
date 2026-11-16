@@ -39,7 +39,7 @@ The `loop` knob adds or drops stages. [references/stages.md](references/stages.m
 
 ## Knobs
 
-The user's choices for a repo are in `$(git rev-parse --git-common-dir)/work-loop/knobs.json`, like `{"loop": "strict", "issues": "never"}`. Read it in the state check. When the user sets a knob for the repo, write it there. A knob that isn't set uses its default.
+The user's choices for a repo are in `$(git rev-parse --git-common-dir)/work-loop/knobs.json`, like `{"loop": "strict", "issues": "never"}`. Read it in the state check. Write a knob there unless the work-ethic hook did. A knob that isn't set uses its default.
 
 | Knob | Values | Default | What it changes |
 |---|---|---|---|

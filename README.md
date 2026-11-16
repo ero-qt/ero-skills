@@ -13,6 +13,8 @@ Skills for Claude Code that make it work on a repository like a careful contribu
 /plugin install work-ethic@ero-qt-skills
 ```
 
+If your `~/.claude/settings.json` has its own per-prompt reminder for these skills, remove it. The work-ethic hooks replace it.
+
 Each skill is its own plugin, so you can pick the ones you want. `work-ethic` needs the other 4 and installs them with it.
 
 ## Skills
