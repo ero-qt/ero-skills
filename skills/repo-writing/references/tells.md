@@ -1,10 +1,32 @@
 # Tells
 
+## How natural text reads
+
+Write it the way you'd say it to someone who works on the same code.
+
+- Start with who does what. Then "because" and the reason, if the reason isn't obvious.
+- Use the verb you'd say out loud. If the same verb came out 4 times, read the sentences again one by one. Don't swap the word everywhere.
+- Use the real thing: the value, the number, the name. A category ("a hot path", "some cases") is a sign you didn't look it up.
+- Join facts with and, but, so and because. Use contractions. Negate with "doesn't" and "isn't".
+- Let sentences come out uneven. A long one next to a short one is fine. Don't polish toward a rhythm.
+- Say each thing once and stop. Don't write an intro about what's coming or a last line about what it meant.
+- Leave out what the reader knows or can see. Cover normal use and what they must act on.
+- Commit. If you checked it, say it flat. If you didn't, say "untested" once.
+- Write only what belongs to this text. If a sentence is about your day, like what else you did or what you tried first, cut it.
+
+Run 3 tests before you show the text:
+
+1. Read it aloud. Rewrite any sentence you wouldn't say as the one you would.
+2. Cover a sentence. If nothing is lost, delete it.
+3. Ask whether the sentence would be here if this were the only thing done today.
+
+## What a tell is
+
 A tell is a habit of generated text that shows up more often than a person would write it. One flagged word proves nothing. A text full of them reads as written by a model, even when every fact in it is right.
 
-Two rules come before the tables:
+These 2 rules come before the tables:
 
-- Fix the sentence, not the word. Swapping a flagged word for its neighbor moves the tell somewhere else, and banning words one by one makes the text worse. Say the sentence out loud and write the one you'd say.
+- Fix the sentence, not the word. Swapping a flagged word for its neighbor only moves the tell. Banning words one by one makes the text worse. Say the sentence out loud and write the one you'd say.
 - `prose_check.py` counts and points. A person reads the text and decides. A clean check doesn't mean the text is good.
 
 Tells change with each model generation, so the word lists stay short. Most of the weight sits on the shape of sentences, the rhythm of a paragraph and the stance of the writer.

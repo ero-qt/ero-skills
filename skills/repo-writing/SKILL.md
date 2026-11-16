@@ -25,15 +25,18 @@ Before the first draft of any kind, look at what the repo already does and match
 - Write as the user: "I built all of these against Node 22", "If you've got a Mac, `npm test -- --mac` would be good to try". "we" is fine. Contractions are fine.
 - Say who did what: "We drop zip's default features", not "the defaults are dropped".
 - Say what happens first, then "because" and the reason: "The parser stops at `\r` because it treats it as a line ending." Never the definition-first shape ("`\r` is a line ending, and the parser stops there"), never inverted or fronted clauses.
-- Join related facts the way a person would: "...but the importer doesn't find any images on Linux and the exporter doesn't start at all." Not a row of short punchy sentences.
-- Vary the sentence shapes. Repeating one pattern (claim, comma, "and", second claim) is the clearest tell there is. Bullets in one list may share a shape, since parallel items read that way.
+- Join related facts the way a person would: "...but the importer doesn't find any images on Linux and the exporter doesn't start at all." Not a row of short punchy sentences. Negate with "doesn't" and "isn't", not "has no".
+- Vary the sentence shapes. Repeating one pattern (claim, comma, "and", second claim) is the clearest tell there is. Let the lengths come out uneven and don't polish toward a rhythm. Bullets in one list may share a shape, since parallel items read that way.
+- Use the verb you'd say out loud. When the same verb comes out 4 times, read those sentences again one by one and pick the verb each one needs. Don't swap the word everywhere, because that only moves the tell.
 - Write every noun where it is used. A pronoun's noun sits in the same sentence. Every verb's object is written out.
 - Use the normal word the domain and the repo already use. No coined shorthand, no evocative near-synonyms ("the clock" for system time), no words this skill set uses internally (gate, tell, read-back, lap).
-- Say each point once. Delete a closing sentence that restates the point with more weight.
-- Be technical and concrete, not prosey. Real values (the real URL, the real version), real names, real commands.
-- Don't overclaim. Say honestly when evidence is thin or a change is only defensive.
+- Say each point once. Don't open with a line about what's coming. Delete a closing sentence that restates the point with more weight.
+- Be technical and concrete, not prosey. Real values (the real URL, the real version), real names, real commands. A category like "a hot path" or "some cases" means you didn't look the real thing up.
+- Leave out what the reader knows or can see. Cover normal use and what they must act on, not every edge case.
+- Commit to what you checked and say it flat. When you didn't check something, say "untested" once. Say honestly when a change is only defensive.
+- Write only what belongs to this text. A sentence about your day, like what else you changed in the same sitting or what you tried first, gets cut.
 
-The full list of rejected phrasings with the fixed forms is in [references/tells.md](references/tells.md). Read it before the first draft in a session.
+The 3 tests to run on every draft and the full list of tells, from single words up to the stance of a whole text, are in [references/tells.md](references/tells.md). Read it before the first draft in a session.
 
 ## 3. Never on a repository
 
@@ -123,7 +126,7 @@ Paths like `<skills>/repo-writing/scripts/prose_check.py` start at the folder th
    ```
 
    Use `--staged` to check the added lines of the staged diff (commit subjects are checked with `--text "<subject>"`). The last lines give the tells per 100 words for each file. Above 1 per 100, read the whole text again and rewrite the sentences, not just the flagged words.
-2. Read the draft once more for a pronoun with no noun in its sentence, a verb with no written object, a phrase picked for sound, a sentence that adds no fact, and a run of sentences with the same shape. Rewrite each one.
+2. Run the 3 tests from the top of [references/tells.md](references/tells.md): read the draft aloud, cover each sentence to see if anything is lost, and ask whether each sentence would be here if this were the only thing done today. Also look for a pronoun with no noun in its sentence, a verb with no written object and a run of sentences with the same shape. Rewrite each one as a whole sentence.
 3. Show it in chat one way, every time. A commit subject goes in inline code alone. Everything else gets a label line with what it is and where it goes ("PR body, owner/repo"), the title on its own line in inline code when the draft has one, then the body inside a 4-backtick fence. The fence keeps the body copyable and lets 3-backtick code blocks sit inside it.
 
 When the user corrects a draft, fix only what was criticized and apply the same fix everywhere the pattern occurs. Edit this skill or [references/tells.md](references/tells.md) in the same pass.
