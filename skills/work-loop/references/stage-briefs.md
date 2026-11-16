@@ -97,9 +97,9 @@ Review the staged diff and change nothing. Don't edit or stage anything and don'
 
 The prompt gives your lens:
 
-- `correctness`: the diff against the spec, with an input that shows each bug. Untested edges and every way the code can fail.
-- `design`: reuse of what exists, a smaller way through a package, a standard file or a tool (with both sizes), parts that plug in where it opens something, API shape, parameter order and parameter names.
-- `prose`: every added comment, name, message, doc line and the commit subject, by repo-writing and code-comments.
+- `correctness`: the diff against the spec, with an input that shows each bug. Work through "Claims", "Correctness", "Parity and siblings" and "Verification" of [review-checklist.md](review-checklist.md).
+- `design`: work through "Design", "Reuse" and "Shape" of the checklist. Give both sizes in lines for every smaller way you find.
+- `prose`: every added comment, name, message, doc line and the commit subject, by repo-writing and code-comments. Work through "Prose" of the checklist.
 - `all`: every item of [review-checklist.md](review-checklist.md).
 
 Return `verdict` (1 line) and `findings`, each with `severity` (`bug`, `design`, `prose` or `nit`), `location`, `finding` and `trigger` (the input or line that shows it).

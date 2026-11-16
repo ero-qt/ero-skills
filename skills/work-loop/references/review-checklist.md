@@ -31,11 +31,31 @@ The reviewer works through every item against the full diff and returns a verdic
 - Warning and path greps match how tools print paths on this host (backslashes on Windows), or totals are compared against the base.
 - The end-to-end run ran the changed code (fresh build, right target dir, right binary).
 
+## Design
+
+- Every new type, member and option has a caller in the diff or in the slice plan. Public API and planned members stay.
+- A wrapper, helper or type with 1 caller and no job of its own goes. Point at the caller it folds into and give the lines it saves.
+- A function takes the object it works with, not a value it could read from that object. A constructor that gets a pointer size next to a process object that already has one is a finding.
+- Parameters are grouped by concept, in the order a caller thinks of them, with 1 naming scheme per list.
+- A parameter or variable name ends with its role and starts with what it works on, like `symbolLocator` for a `SymbolLocator`. A name from another role, like `client` for a server object, is a finding. Give the name it should have.
+- A seam keeps its types. When a value gets widened to `object`, `any` or an untyped function field so 2 cases fit 1 slot, each case gets its own small type.
+- Point out where a part could plug in its own piece through a small interface instead of a branch in 1 central place, when that opens a real use like a 2nd file format. Don't ask for it when there's only 1 case.
+- Generic code and its tests use neutral names, never the name of 1 product that uses them.
+- Code ported from somewhere else gets reshaped for this codebase. A member-for-member copy that brings the old helpers and hacks along is a finding.
+
+## Reuse
+
+- Code in the repo that already does the job or most of it, with its location.
+- A maintained package, the standard library, a standard file format or an existing tool that does what the diff writes by hand. A hand-written parser for a format the standard library reads is a finding. Give both sizes in lines: the code in the diff and the code that uses what exists.
+- A large dependency pulled in for a few lines of code. Give both sizes here too.
+- Reuse that only pays off once a 2nd caller exists waits for that caller. Mention it in 1 line as a `nit`.
+
+Every design and reuse finding gives the smaller or plainer way with 2 numbers, the lines in the diff and the lines the other way takes, so the author can weigh it.
+
 ## Shape
 
 - Format and lint with CI's exact commands. Line length from the repo's config.
-- Magic numbers, duplicated code, needless indirection, file and function size, names that misdescribe.
-- Members with no caller and no planned consumer. Public API and planned members stay.
+- Magic numbers, duplicated code, file and function size, names that misdescribe.
 - Nothing in the diff the issue never mentioned.
 
 ## Prose

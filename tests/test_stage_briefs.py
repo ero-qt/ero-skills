@@ -54,6 +54,18 @@ class StageBriefs(unittest.TestCase):
         sections = re.findall(r"^## (\S+)$", briefs, re.M)
         self.assertEqual(sections, [brief for brief in STAGES.values() if brief])
 
+    # A lens reads its items from the checklist, so every section it lists has to exist there.
+    def test_every_review_lens_names_sections_of_the_checklist(self):
+        review = read(os.path.join(REFERENCES, "stage-briefs.md")).split("## review\n", 1)[1].split("\n## ", 1)[0]
+        checklist = re.findall(r"^## (.+)$", read(os.path.join(REFERENCES, "review-checklist.md")), re.M)
+        lenses = dict(re.findall(r"^- `(\w+)`: (.+)$", review, re.M))
+        self.assertEqual(list(lenses), ["correctness", "design", "prose", "all"])
+        for lens in ["correctness", "design", "prose"]:
+            with self.subTest(lens=lens):
+                named = re.findall(r'"([^"]+)"', lenses[lens])
+                self.assertTrue(named)
+                self.assertLessEqual(set(named), set(checklist))
+
 
 class Links(unittest.TestCase):
     # A link to a file that doesn't exist sends Claude to read nothing.
