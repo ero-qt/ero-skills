@@ -1,6 +1,6 @@
 ---
 name: repo-writing
-description: Use before drafting anything that lands on a repository or outlives the chat: commit messages, PR and issue titles and bodies, review replies, issue comments, READMEs, docs, changelogs, release notes. Researches the repo's house style and templates first, then writes as the user speaking (first person, warm, plain, 4th-grade words, full natural sentences), with the banned phrasings swept out and a prose check run before showing. Not for code comments (code-comments) or chat replies (terse-replies).
+description: "Use before drafting anything that lands on a repository or outlives the chat: commit messages, PR and issue titles and bodies, review replies, issue comments, READMEs, docs, changelogs, release notes. Researches the repo's house style and templates first, then writes as the user speaking (first person, warm, plain, 4th-grade words, full natural sentences), with the banned phrasings swept out and a prose check run before showing. Not for code comments (code-comments) or chat replies (terse-replies)."
 ---
 
 # Repo writing

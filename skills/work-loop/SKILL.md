@@ -1,6 +1,6 @@
 ---
 name: work-loop
-description: Use for any coding task on a repository (fix, feature, refactor, review follow-up, issue or PR work). Reread it after every context compaction. Fixed order with a gate before every artifact: live state check (fetch, open PRs and issues from everyone, CI), read-back, issue, plan, test-first commits presented and approved one at a time, end-to-end check, read-only review, PR, report. Also covers git safety, permissions, downloads and agent fan-out. Pairs with repo-writing, code-comments and terse-replies.
+description: "Use for any coding task on a repository (fix, feature, refactor, review follow-up, issue or PR work). Reread it after every context compaction. Fixed order with a gate before every artifact: live state check (fetch, open PRs and issues from everyone, CI), read-back, issue, plan, test-first commits presented and approved one at a time, end-to-end check, read-only review, PR, report. Also covers git safety, permissions, downloads and agent fan-out. Pairs with repo-writing, code-comments and terse-replies."
 ---
 
 # Work loop

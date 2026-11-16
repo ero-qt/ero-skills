@@ -1,6 +1,6 @@
 ---
 name: code-comments
-description: Use when writing or changing code that others will read: before adding a comment or doc comment, naming anything, or shaping functions and files. Researches the file's and repo's house style first (editorconfig, linters, neighbor code, comment density), then makes the code document itself through names, types, blank lines and small functions, and comments only what the code can't show, as "what it does, because why". Covers doc comment openers, test names and the comment tells the user rejects.
+description: "Use when writing or changing code that others will read: before adding a comment or doc comment, naming anything, or shaping functions and files. Researches the file's and repo's house style first (editorconfig, linters, neighbor code, comment density), then makes the code document itself through names, types, blank lines and small functions, and comments only what the code can't show, as \"what it does, because why\". Covers doc comment openers, test names and the comment tells the user rejects."
 ---
 
 # Code comments and self-documenting code
