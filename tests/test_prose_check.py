@@ -87,6 +87,127 @@ class CheckRules(unittest.TestCase):
         self.assertEqual(run("--text", "rename `names_lookup` to something")[1], "0 hard, 0 to check\n")
 
 
+def run_file(text, name="draft.md"):
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, name)
+        with open(path, "w", encoding="utf-8", newline="\n") as file:
+            file.write(text)
+        return run(path)
+
+
+class ParagraphChecks(unittest.TestCase):
+    def test_short_sentence_after_a_long_one_is_flagged(self):
+        text = "The importer reads every image in the folder and writes a thumbnail for each one on Linux. It stops.\n"
+        self.assertIn("dramatic short sentence", run_file(text)[1])
+
+    def test_short_sentence_with_code_passes(self):
+        text = "The importer reads every image in the folder and writes a thumbnail for each one on Linux. Run `make`.\n"
+        self.assertNotIn("dramatic short sentence", run_file(text)[1])
+
+    def test_decision_in_one_breath_is_flagged(self):
+        text = ("Reads now format their message lazily, because failed reads are common in the scan loop and "
+                "formatting the message is slow, which made every scan of a large file take twice as long.\n")
+        self.assertIn("decision packed into 1 sentence", run_file(text)[1])
+
+    def test_long_sentence_with_one_reason_passes(self):
+        text = ("Failed reads don't format their message unless you ask for it, because formatting it made every "
+                "scan of a large file in the loop about 100 nanoseconds slower than before.\n")
+        self.assertNotIn("decision packed into 1 sentence", run_file(text)[1])
+
+    def test_flat_sentence_length_is_flagged(self):
+        text = ("The parser reads the header first and checks the magic bytes. "
+                "Then it reads the table of contents into a small list. "
+                "Each entry points at one block of data in the file. "
+                "The reader skips any block whose type it doesn't know.\n")
+        self.assertIn("flat sentence length", run_file(text)[1])
+
+    def test_uneven_sentence_length_passes(self):
+        text = ("The parser reads the header first. "
+                "Then it reads the table of contents, which points at every block of data in the file. "
+                "Each entry is 16 bytes. "
+                "The reader skips any block whose type it doesn't know and logs the offset so you can find it.\n")
+        self.assertNotIn("flat sentence length", run_file(text)[1])
+
+    def test_same_first_word_three_times_is_flagged(self):
+        text = "The cache keeps 10 entries. The reader checks it first. The writer clears it on save.\n"
+        self.assertIn("same skeleton in a row", run_file(text)[1])
+
+    def test_varied_openers_pass(self):
+        text = "The cache keeps 10 entries. A read checks it first and the writer clears it on save.\n"
+        self.assertNotIn("same skeleton in a row", run_file(text)[1])
+
+    def test_same_verb_in_many_sentences_is_flagged(self):
+        text = ("This repo has 3 packages. `core` has the parser. `cli` has the command line.\n\n"
+                "The docs folder has the guides.\n")
+        _, out = run_file(text)
+        self.assertIn("same verb in many sentences: 'has' 4 times", out)
+
+    def test_varied_verbs_pass(self):
+        text = ("This repo has 3 packages. `core` contains the parser. `cli` is the command line.\n\n"
+                "The guides are in the docs folder.\n")
+        self.assertNotIn("same verb in many sentences", run_file(text)[1])
+
+    def test_closing_restatement_is_flagged(self):
+        text = "The build caches the restore step. This keeps the build fast.\n"
+        self.assertIn("closing restatement", run_file(text)[1])
+
+    def test_last_sentence_with_a_new_fact_passes(self):
+        text = "The build caches the restore step. A clean build takes 4 minutes.\n"
+        self.assertNotIn("closing restatement", run_file(text)[1])
+
+    def test_hedge_stack_is_flagged(self):
+        self.assertIn("hedge stack", run_file("This may potentially help in some setups.\n")[1])
+
+    def test_one_hedge_passes(self):
+        self.assertNotIn("hedge stack", run_file("This may help when the cache is cold.\n")[1])
+
+    def test_sentences_in_a_list_or_table_are_not_joined(self):
+        text = ("- The parser reads the header first and checks the magic bytes in it.\n"
+                "- Stops.\n\n"
+                "| a | b |\n|---|---|\n| The parser reads the header and checks the magic bytes in it. | It stops. |\n")
+        self.assertNotIn("dramatic short sentence", run_file(text)[1])
+
+    def test_skill_and_tells_files_skip_the_paragraph_checks(self):
+        text = "The build caches the restore step. This keeps the build fast.\n"
+        for name in ("SKILL.md", "tells.md"):
+            with self.subTest(name=name):
+                self.assertNotIn("closing restatement", run_file(text, name)[1])
+
+    def test_commit_subject_gets_the_paragraph_checks(self):
+        self.assertIn("hedge stack", run("--text", "possibly fix what might break")[1])
+
+
+class Density(unittest.TestCase):
+    def test_file_gets_a_density_line(self):
+        _, out = run_file("The build is robust. It caches the restore step and the test step.\n")
+        self.assertIn("tells: 1 in 13 words, 7.7 per 100", out)
+
+    def test_clean_file_gets_a_density_line(self):
+        _, out = run_file("The build caches the restore step.\n")
+        self.assertIn("tells: 0 in 6 words, 0.0 per 100", out)
+
+    def test_commit_subject_gets_no_density_line(self):
+        self.assertNotIn("tells:", run("--text", "add a robust cache")[1])
+
+    def test_staged_density_counts_added_lines_only(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, "init", "-q")
+            path = os.path.join(repo, "a.md")
+            with open(path, "w", encoding="utf-8", newline="\n") as file:
+                file.write("A robust and seamless intro line.\n")
+            git(repo, "add", "a.md")
+            git(repo, "commit", "-qm", "x")
+            with open(path, "a", encoding="utf-8", newline="\n") as file:
+                file.write("\nThe build caches the restore step. This keeps the build fast.\n")
+            git(repo, "add", "a.md")
+
+            _, out = run("--staged", cwd=repo)
+
+            self.assertIn("a.md:3: check: closing restatement", out)
+            self.assertIn("a.md: tells: 1 in 11 words", out)
+            self.assertNotIn("a.md:1:", out)
+
+
 class Fences(unittest.TestCase):
     def test_inner_fence_does_not_end_outer_code_fence(self):
         draft = "````markdown\n```rust\nlet a = 1; // name the thing\n```\nthe walk lands — here\n````\n"

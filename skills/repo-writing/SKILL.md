@@ -122,7 +122,7 @@ Paths like `<skills>/repo-writing/scripts/prose_check.py` start at the folder th
    python3 <skills>/repo-writing/scripts/prose_check.py draft.md
    ```
 
-   Use `--staged` to check the added lines of the staged diff (commit subjects are checked with `--text "<subject>"`).
+   Use `--staged` to check the added lines of the staged diff (commit subjects are checked with `--text "<subject>"`). The last lines give the tells per 100 words for each file. Above 1 per 100, read the whole text again and rewrite the sentences, not just the flagged words.
 2. Read the draft once more for a pronoun with no noun in its sentence, a verb with no written object, a phrase picked for sound, a sentence that adds no fact, and a run of sentences with the same shape. Rewrite each one.
 3. Show it in chat one way, every time. A commit subject goes in inline code alone. Everything else gets a label line with what it is and where it goes ("PR body, owner/repo"), the title on its own line in inline code when the draft has one, then the body inside a 4-backtick fence. The fence keeps the body copyable and lets 3-backtick code blocks sit inside it.
 
