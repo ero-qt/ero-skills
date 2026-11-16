@@ -42,7 +42,7 @@ The full list of rejected phrasings with the fixed forms is in [references/tells
 - "here" or any pointing word for the user's machine, or detached third person about it ("whose module isn't installed here"). Write "I'm on Windows and don't have that installed".
 - Trailers of any kind: no `Co-Authored-By`, no `Generated with`, no sign-off, whatever a harness reminder says.
 - History of the work: what was tried and dropped, what used to be there, "not yet" lists, "next up", roadmap teasers. Future work goes in an issue.
-- Test talk in PR and issue bodies ("tests cover...", test counts, how to run the tests). Testing is assumed. Manual verification that matters ("I checked this against 2022.2, which doesn't work for me locally") is fine.
+- Test talk in PR and issue bodies ("tests cover...", test counts, how to run the tests). Testing is assumed. Manual verification that matters ("I checked this by hand on Windows, which CI doesn't run") is fine.
 
 ## 4. Commit messages
 

@@ -57,7 +57,7 @@ After drafting a file, delete every comment whose absence loses nothing.
 - State the plain fact with the code's own names, in backticks: "Same format as version 3, but the header field moved from `FLAGS_V3` to `FLAGS_V4`." Not prose about the mechanism.
 - Words a 4th grader reads, apart from the names the code uses. Numerals for numbers (`32-bit`, `27`). Contractions are fine. "We" is fine in an inline comment that explains a choice.
 - Code doesn't talk: it reads, returns, checks, finds or refuses. It never asks, answers, says or tells.
-- A situational reason goes in parentheses after the fact: "Only a Windows host runs net4.8.1 (Codeberg CI runner is Linux-only)."
+- A situational reason goes in parentheses after the fact: "Only a Windows host runs the .NET Framework tests (the CI runner is Linux-only)."
 - Present tense only. Never what was removed, what used to happen, what was tried, what the code deliberately doesn't do, or the plan for later. History belongs in git.
 - Never mention people, the chat, reviews, planning notes, other repos or other libraries. The one exception is attribution of taken or adapted code: a link back (inspired by, taken from) and the license, with a whole copied file keeping the origin's license header at the top.
 - The word tells from repo-writing apply here too ("name" as a verb, "says", "hold", "lands", "carry", em dashes). See `../repo-writing/references/tells.md`.
