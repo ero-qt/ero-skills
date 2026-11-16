@@ -13,11 +13,16 @@ const path = require('path');
 const { currentRecords, ledgerPath } = require('./ledger');
 
 const CHECKED_TOOLS = ['Bash', 'PowerShell'];
+const COMMIT_STAGING_FLAGS = ['all', 'include', 'interactive', 'only', 'patch', 'pathspec-from-file'];
+const COMMIT_VALUE_FLAGS = ['author', 'cleanup', 'date', 'file', 'fixup', 'message', 'reedit-message',
+    'reuse-message', 'squash', 'template', 'trailer'];
 const DEFAULT_KNOBS = { docs: 'repo', loop: 'standard' };
+const GIT_VALUE_OPTIONS = ['-c', '--config-env', '--git-dir', '--namespace', '--work-tree'];
 const NEVER_STAGE = ['.env', '.claude/settings.local.json'];
 const LEDGER_SCRIPT = path.join(__dirname, 'ledger.js');
 const PROSE_CHECK = path.join(__dirname, '..', '..', 'repo-writing', 'scripts', 'prose_check.py');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
+const STAGING_SUBCOMMANDS = ['add', 'mv', 'rm', 'stage'];
 const TRAILER = /\b(co-authored-by|signed-off-by):|generated with \[?claude|\u{1F916}/iu;
 
 const CHANGELOG = /^(changelog|changes|history)(\.(md|markdown|rst|txt))?$/i;
@@ -121,9 +126,34 @@ function parseCommands(text) {
     return commands.filter((command) => command.words.length);
 }
 
-// Returns the folder and message of the first `git commit` in the command. Returns null when it doesn't commit.
+// Returns the folder, subcommand and arguments of a git command. Returns null for any other command.
+function readGitCall(args, dir) {
+    if (!/(^|[\\/])git(\.exe)?$/i.test(args[0] || '')) {
+        return null;
+    }
+
+    let index = 1;
+    let gitDir = dir;
+    while (index < args.length && args[index].startsWith('-')) {
+        const option = args[index];
+        if (option === '-C' && args[index + 1]) {
+            gitDir = path.resolve(gitDir, args[index + 1]);
+            index += 2;
+        } else if (GIT_VALUE_OPTIONS.includes(option)) {
+            index += 2;
+        } else {
+            index++;
+        }
+    }
+
+    return { dir: gitDir, subcommand: args[index], args: args.slice(index + 1) };
+}
+
+// Returns the first `git commit` in the command. Returns null when it doesn't commit. `staging` lists what stages
+// files in the same command, since the guard reads the index before any of the command runs.
 function findCommit(text, cwd) {
     let dir = cwd;
+    const staging = [];
     for (const { words, heredocs } of parseCommands(text)) {
         const args = words.slice(words.findIndex((item) => !/^\w+=/.test(item)));
         if (/^(cd|set-location|pushd)$/i.test(args[0] || '') && args[1]) {
@@ -131,35 +161,23 @@ function findCommit(text, cwd) {
             continue;
         }
 
-        if (!/(^|[\\/])git(\.exe)?$/i.test(args[0] || '')) {
-            continue;
-        }
-
-        let index = 1;
-        let commitDir = dir;
-        while (index < args.length && args[index].startsWith('-')) {
-            if (args[index] === '-C' && args[index + 1]) {
-                commitDir = path.resolve(commitDir, args[index + 1]);
-                index += 2;
-            } else if (args[index] === '-c') {
-                index += 2;
-            } else {
-                index++;
-            }
-        }
-
-        if (args[index] === 'commit') {
-            return { dir: commitDir, ...readMessage(args.slice(index + 1), heredocs, commitDir) };
+        const call = readGitCall(args, dir);
+        if (call && STAGING_SUBCOMMANDS.includes(call.subcommand)) {
+            staging.push(`git ${call.subcommand}`);
+        } else if (call && call.subcommand === 'commit') {
+            const commit = readCommitArgs(call.args, heredocs, call.dir);
+            return { dir: call.dir, message: commit.message, staging: staging.concat(commit.staging) };
         }
     }
 
     return null;
 }
 
-// Collects the message from -m, --message, -F and --file, also when -m comes last in joined flags like -am.
-// `-F -` reads the heredoc of the command.
-function readMessage(args, heredocs, dir) {
+// Reads the message of `git commit` from -m, --message, -F and --file. Also lists the flags and paths
+// that stage files. Short flags can come joined, like -qm. `-F -` reads the heredoc of the command.
+function readCommitArgs(args, heredocs, dir) {
     const parts = [];
+    const staging = [];
     const readFile = (name) => {
         if (name === '-') {
             parts.push(...heredocs);
@@ -172,23 +190,47 @@ function readMessage(args, heredocs, dir) {
             // A message file that can't be read is git's problem to report.
         }
     };
+    const takeValue = (flag, value) => {
+        if (flag === 'm' || flag === 'message') {
+            parts.push(value);
+        } else if (flag === 'F' || flag === 'file') {
+            readFile(value);
+        }
+    };
 
     for (let index = 0; index < args.length; index++) {
         const arg = args[index];
-        const value = arg.match(/^(?:-m|--message=)(.+)$/s);
-        const file = arg.match(/^(?:-F|--file=)(.+)$/s);
-        if (arg === '-m' || arg === '--message' || /^-[a-ln-zA-Z]+m$/.test(arg)) {
-            parts.push(args[++index] || '');
-        } else if (arg === '-F' || arg === '--file') {
-            readFile(args[++index] || '');
-        } else if (value) {
-            parts.push(value[1]);
-        } else if (file) {
-            readFile(file[1]);
+        const long = arg.match(/^--([^=]+)(?:=(.*))?$/s);
+        if (arg === '--') {
+            if (index + 1 < args.length) {
+                staging.push('a path after the commit flags');
+            }
+            break;
+        } else if (long) {
+            const [, flag, joined] = long;
+            if (COMMIT_STAGING_FLAGS.includes(flag)) {
+                staging.push(`--${flag}`);
+            } else if (COMMIT_VALUE_FLAGS.includes(flag)) {
+                takeValue(flag, joined !== undefined ? joined : args[++index] || '');
+            }
+        } else if (/^-[^-]/.test(arg)) {
+            for (let at = 1; at < arg.length; at++) {
+                const flag = arg[at];
+                if ('aiop'.includes(flag)) {
+                    staging.push(`-${flag}`);
+                } else if ('mFCct'.includes(flag)) {
+                    takeValue(flag, arg.slice(at + 1) || args[++index] || '');
+                    break;
+                } else if ('uS'.includes(flag)) {
+                    break;
+                }
+            }
+        } else {
+            staging.push('a path after the commit flags');
         }
     }
 
-    return { message: parts.join('\n\n').replace(/^@\r?\n?|\r?\n?@$/g, '') };
+    return { message: parts.join('\n\n').replace(/^@\r?\n?|\r?\n?@$/g, ''), staging };
 }
 
 function readJson(file) {
@@ -288,6 +330,12 @@ function check(event) {
     const { dir, message } = commit;
     const workLoopDir = path.dirname(ledger);
     const findings = [];
+    if (commit.staging.length) {
+        const what = [...new Set(commit.staging)].join(', ');
+        findings.push(hard('staging', `${what} stages files in the same command as the commit, so the checks `
+            + 'below read an index that is about to change. Stage by path first, then commit in its own command.'));
+    }
+
     if (TRAILER.test(command) || TRAILER.test(message)) {
         findings.push(hard('trailer', 'the commit message has a Co-Authored-By, Signed-off-by or generated-with line'));
     }

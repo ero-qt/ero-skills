@@ -132,11 +132,41 @@ class CommitGuard(unittest.TestCase):
 
         self.assert_denied(self.guard(f'git commit -m "Add parser {DASH} with tests"'), "prose check", "message")
 
-    # Short flags can come together, like `-am` or `-sm`.
+    # Short flags can come together, like `-qm` or `-vm`.
     def test_dash_in_a_message_after_joined_flags_is_denied(self):
         self.stage("parser.py", "x = 1\n")
 
-        self.assert_denied(self.guard(f'git commit -am "Add parser {DASH} with tests"'), "prose check", "message")
+        self.assert_denied(self.guard(f'git commit -qm "Add parser {DASH} with tests"'), "prose check", "message")
+
+    # The guard reads the index before the command runs, so it can't see what the same command stages.
+    def test_staging_in_the_commit_command_is_denied(self):
+        self.write("notes.md", f"A {DASH} B\n")
+
+        for command in ['git add -A && git commit -m "Add notes"', 'git add .\ngit commit -m "Add notes"',
+                        'git rm -q old.py; git commit -m "Remove old"', 'git stage notes.md && git commit -m "Add"',
+                        'git mv a.py b.py && git commit -m "Rename"']:
+            with self.subTest(command=command):
+                self.assert_denied(self.guard(command), "Stage by path first")
+
+    def test_commit_flags_that_stage_are_denied(self):
+        self.stage("parser.py", "x = 1\n")
+
+        for command in ['git commit -a -m "Add parser"', 'git commit --all -m "Add parser"',
+                        'git commit -qam "Add parser"', 'git commit -i parser.py -m "Add parser"',
+                        'git commit --only -m "Add parser" parser.py', 'git commit -m "Add parser" README.md',
+                        'git commit -m "Add parser" -- README.md']:
+            with self.subTest(command=command):
+                self.assert_denied(self.guard(command), "Stage by path first")
+
+    # Flags that take a value, like --author or -C, aren't mistaken for a path.
+    def test_commit_flag_values_are_not_paths(self):
+        self.stage("parser.py", "x = 1\n")
+
+        for command in ['git commit --author "Test <test@example.com>" -m "Add parser"',
+                        'git commit -C HEAD --reset-author', 'git commit --amend --no-edit',
+                        'git commit --cleanup strip -m "Add parser"', 'git add parser.py']:
+            with self.subTest(command=command):
+                self.assertIsNone(self.guard(command))
 
     def test_default_never_stage_path_is_denied(self):
         self.stage(".env", "TOKEN=1\n")
