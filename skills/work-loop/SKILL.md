@@ -17,8 +17,9 @@ Sidebars, quick questions and exploration stay flexible. The loop applies once w
 
 - The gate words are `Go?`, `Approve?` and `Review?`. Whatever the word gates (the read-back, the plan, the full draft, the commit) sits in chat above it, verbatim, never described.
 - Ask a gate in plain chat as the last line of the turn, so the draft above it stays visible.
-- Use the question tool for real choices between options (pick an approach, pick a name, answer a blocker). Make each option self-contained with the recommended one first. Put the reasons inside the option descriptions, since text above the question can be hidden.
+- Use the question tool for real choices (an approach, a name, a blocker), with each option self-contained and the recommended one first. Put the reasons in the option descriptions, because text above the question can be hidden.
 - Only an explicit approve or a clear yes opens a gate. It covers only the one item just shown. "ok", "ya", "sure", "in" count as yes when they answer the gate. An acknowledgment ("ah i missed it"), frustration ("do whatever", "fine, whatever"), or approval of the work is not approval of the text. When the user clearly approves mid-thread ("i'm clearly approving this commit right now"), take it.
+- A correction to a draft opens its gate again. Show the new draft and ask again.
 - Never open, post, edit, commit or push before its gate returns. Never call anything committed, opened or posted before it is. If something went out early, fix it at once and say so.
 - When the user posts in their own name, hand them the text and stop. Never post for them unless told.
 - Autonomous mode exists only when the user grants it in words for a stretch of work. Then skip the per-commit, PR-text and `Review?` gates, but keep the commit style, staging by path, the review itself, the end-to-end check and the CI watch. Still never push the default branch.
@@ -119,24 +120,18 @@ Work the whole change out end to end, then stage and present exactly one commit 
 2. Write the least code that passes it, in a separate tool call. The test and the code go into the same commit.
 3. Run the narrow tests for the touched area. Run the format and lint commands CI runs, verbatim, not a narrower variant. Fix every warning in touched files. [references/stages.md](references/stages.md) has the rules for running tests and builds.
 4. Run the real thing end to end on every OS and path the change touches (the binary, the game, the tool, the page). Passing tests and a hand-run equivalent are not enough. When a check needs an app or game running and it isn't, ask the user to start it right away.
-5. Decide whether the change belongs in the changelog: anything a user of the project would notice does. A fix to something not released yet changes the existing `Unreleased` entry instead of adding one. Tests, CI and refactors get no entry. When the repo keeps one, add the entry in the same commit under `## [Unreleased]`, in the file's own form. [references/stages.md](references/stages.md) has the form for a repo without one. Say in the presentation whether the commit got an entry and why.
+5. Decide whether the change belongs in the changelog: anything a user of the project would notice does. A fix to something not released yet changes the existing `Unreleased` entry instead of adding one. Tests, CI and refactors get no entry. When the repo keeps one, add the entry in the same commit under `## [Unreleased]`, in the file's own form. [references/stages.md](references/stages.md) has the form for a repo without one.
 6. Sweep every new line of prose (comments, doc comments, test names, the commit subject) for tells: run `python3 <skills>/repo-writing/scripts/prose_check.py --staged` after staging and fix what it flags.
-7. Stage by explicit path. Commits are the one draft with their own shape, the table below. Run `git status --short` first and read it. Never `git add -A` or `git commit -a`. Every staged hunk must match the commit subject. An untracked file never rides along in an unrelated commit.
-8. Present in this shape, then end the turn:
+7. Stage by explicit path. Run `git status --short` first and read it. Never `git add -A` or `git commit -a`. Every staged hunk must match the commit subject. An untracked file never rides along in an unrelated commit.
+8. Present in this shape and end the turn. The gate fits in 12 lines, with all checks on 1 line and the subject right above `Approve?`. Add up to 3 points, and only ones the user has to decide. Leave it staged for the user's editor.
 
 ````
-**<what the commit does, one line>**
-
-| File | Change |
-|---|---|
-| [path/file.rs](path/file.rs) | <what changed> |
-
-`<test command>` -> `<its last line>`
-Changelog: <entry added, or why none>
-`<end-to-end command>` -> `<what it showed>`
+**<what the commit does, one line>** (<size>, <loop level>)
+[file.rs](path/file.rs), [other.rs](path/other.rs): <what changed>
+Checks: `<test command>` <last line>, end to end <what it showed>, prose 0 hard, changelog <added, or why none>
+- <a point that needs a decision>
 
 `<commit subject>`
-
 Approve? Next: <what comes after> (<n+1>/<m>).
 ````
 
