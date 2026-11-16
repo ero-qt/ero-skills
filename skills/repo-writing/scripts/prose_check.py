@@ -26,6 +26,7 @@ HARD = [
 CHECK = [
     ("'name' as a verb", re.compile(r"\b(names|named|naming)\b|\bname (the|a|an|its|one|each|every|both|them|it)\b", re.I)),
     ("'says' for code or output", re.compile(r"\b(says|saying)\b|\bsays so\b", re.I)),
+    ("'has no' or 'no other'", re.compile(r"\b(has|have|had) no\b|\bno other\b", re.I)),
     ("'lands'", re.compile(r"\b(lands?|landed|landing)\b", re.I)),
     ("'hold' or 'held'", re.compile(r"\b(hold|holds|held|holding)\b", re.I)),
     ("'carry'", re.compile(r"\b(carry|carries|carried|carrying)\b", re.I)),

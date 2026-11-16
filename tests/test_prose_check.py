@@ -69,6 +69,13 @@ class CheckRules(unittest.TestCase):
     def test_claim_exclamation_is_flagged(self):
         self.assertIn("exclamation mark", run("--text", "This makes it much faster!")[1])
 
+    def test_clipped_negation_is_flagged(self):
+        _, out = run("--text", "the repo has no samples folder and shares its config with no other service")
+        self.assertIn("'has no' or 'no other'", out)
+
+    def test_negation_with_doesnt_passes(self):
+        self.assertEqual(run("--text", "the repo doesn't have a samples folder")[1], "0 hard, 0 to check\n")
+
     def test_help_prints_usage(self):
         code, out = run("--help")
         self.assertEqual(code, 0)

@@ -10,9 +10,11 @@ Phrasings the user rejected in repo text and code comments, with the form that r
 | "says", "says so", "saying X" for code or output ("stops and says so") | "returns", "prints", "lists", "throws", "fails with" |
 | "hold", "held" for checks or contents ("held to the entry", "what a build holds") | "checked against", "contains", "has" |
 | "carry", "carries" ("releases carried the manifest") | "came with", "contains", "has" |
-| "lands", "land on" ("lands on the 2017.3 offsets") | "uses", "gets", "ends up with" |
+| The same flat verb in every sentence about contents, most often "has" ("This repo has the libraries", "`sizes` has the size of each field", "the row has what's different", over and over in 1 readme) | Not a banned word. Read the sentence out loud as if telling a person, and use the verb that comes out: "contains", "lists", "declares", "shows", "gives", "keeps", or "has" where "has" is what a person would say ("A failed row has `error` instead of the maps."). |
+| "lands", "land on" ("lands on the default settings") | "uses", "gets", "ends up with" |
+| "has no", "have no", "with no other" ("the repo has no `samples/` folder", "shares its config with no other service") | "doesn't have a", "doesn't share its config with any other service" |
 | "told by", "tell", "ask", "answer" for code | "reads", "returns", "checks", "finds", "refuses" |
-| "owns", "stands on", "the root", "hole", "the seam", "the carve", "roots" | the concrete thing: "the assemblies vector and the type-info table" |
+| "owns", "stands on", "the root", "hole", "the seam", "the carve", "roots" | the concrete thing: "the plugin list and the symbol table" |
 | "gap", "corpus", "afresh", "flavor", "watchdog", "hits", "all the way through", "the ... ones" | "missing", "found", "every", the plain word |
 | "era", "v2", "v3", "older lineage" for real versions | the real artifact or version: "libfoo.so.2", "the Python versions" |
 | "width" for pointer size, "Master" without explanation | "64-bit", "32-bit", "x64", "x86", say what it is |
@@ -49,6 +51,7 @@ Phrasings the user rejected in repo text and code comments, with the form that r
 | Restating with more weight | a closing line that repeats the point | delete it |
 | Padding evidence | "tested on Node 22.1 and 22.2" (two patches of one minor) | "tested on Node 22.2" |
 | Stating the obvious | "nothing is released yet" | delete |
+| Session context | "Every other repo gets the same file and the same time." (the same change went to sibling repos in one sitting) | delete. The text covers only what changes in this repo. |
 | Alternatives nobody has seen | "there is no construction from a string" | delete |
 | Triads, "not X but Y", rhetorical questions, exclamation marks on claims (a greeting like "Hey!" is fine) | "fast, safe, and correct" | the one fact that matters |
 | Em dash, en dash, semicolon stand-in | `the scan — which ...` / `the scan; it ...` | two sentences, or a plain clause |
@@ -66,3 +69,13 @@ Phrasings the user rejected in repo text and code comments, with the form that r
 ## Mechanical grep
 
 `scripts/prose_check.py` flags most of the word tells and every dash and trailer. It can't judge shapes, so read for the shapes yourself.
+
+## Design decision packed into 1 sentence
+
+Rejected: "Failed lookups now build their message only when something reads it, because a failed lookup is normal on a hot path and loading a resource made it slower."
+
+Written instead: "Lookups that fail don't build their message unless you ask for it. Just moving the strings into a resource file made failed lookups twice as slow, and callers fail a lot of lookups."
+
+What was wrong: vague placeholders ("something", "a hot path"), a general truth instead of the concrete fact and its number, and "X, because A and B" squeezing a whole decision into 1 breath so it reads like a summary of a design. Say what changed, then what you saw, in the words you'd type to a coworker.
+
+Aim for this in all repo text: a bit casual, low-ish effort, all the info kept, readable and easy to scan.
