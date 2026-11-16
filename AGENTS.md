@@ -16,7 +16,7 @@ This repo contains Claude Code skills. Each skill is its own plugin in `.claude-
 2. Write the skill text by repo-writing rules, with one fact in one place. Put long lists in `references/`.
 3. Add a new skill to `.claude-plugin/marketplace.json` as its own plugin entry and to the skill list in `README.md`.
 4. Add a `CHANGELOG.md` entry under `## [Unreleased]` for anything a user of the skills would notice, in [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/) form. A change to something not released yet edits the existing entry. Tests and CI get no entry.
-5. Run the prose check on the staged diff: `python3 skills/repo-writing/scripts/prose_check.py --staged`. Hard findings block the commit. Check findings need a look. Files named `SKILL.md` or `tells.md` only get the hard rules because they quote bad examples on purpose. A new rule in the script gets a row in `skills/repo-writing/references/tells.md` with the rule's name in the Check column, so `--explain` finds it.
+5. Run the prose check on the staged diff: `python3 skills/repo-writing/scripts/prose_check.py --staged`. Hard findings block the commit. Check findings need a look. Files named `SKILL.md` or `tells.md` only get the hard rules because they quote bad examples on purpose. To run every rule on a skill file, pipe it in with `python3 skills/repo-writing/scripts/prose_check.py < skills/<name>/SKILL.md`. A new rule in the script gets a row in `skills/repo-writing/references/tells.md` with the rule's name in the Check column, so `--explain` finds it.
 
 ## Testing
 
