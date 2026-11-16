@@ -1,7 +1,7 @@
 // Keeps the terse-replies level in effect for a whole session.
 // `prompt` runs on UserPromptSubmit: it reads level commands from the prompt, marks prompts like "explain ..."
-// and prints a reminder of the level.
-// `session` runs on SessionStart: it prints the same reminder, so the level comes back after a compaction.
+// and prints the level in 1 line. After a reply that broke a hard rule it prints the full reminder instead.
+// `session` runs on SessionStart: it prints the full reminder, so the rules come back after a compaction.
 
 const fs = require('fs');
 const os = require('os');
@@ -15,6 +15,7 @@ const mode = process.argv[2];
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
 const stateFile = path.join(dataDir, 'terse-level');
 const explainFile = path.join(dataDir, 'terse-explain');
+const slipFile = path.join(dataDir, 'terse-slipped');
 
 function readLevel() {
     try {
@@ -67,12 +68,32 @@ function reminder(level) {
         + 'or with the open work-loop gate line.';
 }
 
-function print(eventName, level) {
+function shortReminder(level) {
+    return `TERSE ${level.toUpperCase()} for every reply, from the terse-replies skill.`;
+}
+
+// Returns the rules reply-check.js found broken in the last reply and clears them, so they come back only once.
+function takeSlips() {
+    try {
+        const slips = fs.readFileSync(slipFile, 'utf8').trim();
+        fs.rmSync(slipFile, { force: true });
+        return slips ? slips.split(/\r?\n/) : [];
+    } catch {
+        return [];
+    }
+}
+
+function promptReminder(level) {
+    const slips = takeSlips();
+    return slips.length ? `${reminder(level)} Last reply broke: ${slips.join(', ')}.` : shortReminder(level);
+}
+
+function print(eventName, level, text) {
     if (!LEVELS.includes(level)) {
         return;
     }
 
-    const output = { hookSpecificOutput: { hookEventName: eventName, additionalContext: reminder(level) } };
+    const output = { hookSpecificOutput: { hookEventName: eventName, additionalContext: text(level) } };
     process.stdout.write(JSON.stringify(output));
 }
 
@@ -80,7 +101,7 @@ let input = '';
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
     if (mode === 'session') {
-        print('SessionStart', readLevel());
+        print('SessionStart', readLevel(), reminder);
         return;
     }
 
@@ -99,5 +120,5 @@ process.stdin.on('end', () => {
 
     writeExplainFlag(asksForExplanation(prompt));
 
-    print('UserPromptSubmit', readLevel());
+    print('UserPromptSubmit', readLevel(), promptReminder);
 });

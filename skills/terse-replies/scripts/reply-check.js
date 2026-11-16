@@ -213,6 +213,12 @@ function log(findings) {
     const lines = findings.map((finding) => JSON.stringify({ time, check: 'reply', ...finding }) + '\n');
     fs.mkdirSync(dataDir, { recursive: true });
     fs.appendFileSync(path.join(dataDir, 'slips.jsonl'), lines.join(''));
+
+    // terse-hook.js prints the full reminder with these lines at the next prompt.
+    const broken = findings.filter((finding) => finding.kind === 'hard').map((finding) => finding.detail);
+    if (broken.length) {
+        fs.writeFileSync(path.join(dataDir, 'terse-slipped'), broken.join('\n'));
+    }
 }
 
 let input = '';
