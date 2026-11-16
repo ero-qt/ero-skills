@@ -279,6 +279,14 @@ class Density(unittest.TestCase):
         _, out = run_file("The build caches the restore step.\n")
         self.assertIn("tells: 0 in 6 words, 0.0 per 100", out)
 
+    def test_layout_rules_do_not_count_as_tells(self):
+        heading = "#" * 2
+        text = (f"{heading} Install\n\nThe build caches the restore step.\n\n{heading} Usage\n\nRun the script.\n\n"
+                f"{heading} License\n\nThe code is under the MIT license.\n")
+        _, out = run_file(text)
+        self.assertIn("heading bigger than h3", out)
+        self.assertIn("tells: 0 in", out)
+
     def test_commit_subject_gets_no_density_line(self):
         self.assertNotIn("tells:", run("--text", "add a robust cache")[1])
 

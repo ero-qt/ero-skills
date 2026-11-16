@@ -299,11 +299,15 @@ def quotes_bad_examples(where):
 
 
 def density(where, lines, findings):
-    """Returns the density line for the findings and words of 1 text, or None when it doesn't have any words."""
+    """Returns the density line for the findings and words of 1 text, or None when it doesn't have any words.
+
+    The markdown rules are about the layout of a PR or issue body, so they don't count as tells.
+    """
     total = sum(len(words(strip_code(line))) for _, line in lines)
     if not total:
         return None
-    count = sum(1 for finding in findings if finding[0] == where)
+    layout = {rule for rule, _ in MARKDOWN}
+    count = sum(1 for finding in findings if finding[0] == where and finding[3] not in layout)
     return f"{where}: tells: {count} in {total} words, {count * 100 / total:.1f} per 100"
 
 
