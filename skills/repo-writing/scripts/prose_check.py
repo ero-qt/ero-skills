@@ -279,10 +279,13 @@ def check_paragraphs(where, lines, findings, report=None):
 
 
 def check_verbs(where, lines, findings):
-    """Flags a content verb used 4 or more times per 300 words."""
+    """Flags a content verb used 4 or more times per 300 words.
+
+    A negated verb ("doesn't have") and "have to" don't count, because they don't state what something contains.
+    """
     total = sum(len(words(strip_code(line))) for _, line in lines)
     for verb, forms in FLAT_VERBS.items():
-        pattern = re.compile(r"\b(" + "|".join(forms) + r")\b", re.I)
+        pattern = re.compile(r"(?<!n't )(?<!not )\b(" + "|".join(forms) + r")\b(?! to\b)", re.I)
         hits = [number for number, line in lines for _ in pattern.finditer(strip_code(line))]
         if len(hits) >= 4 and len(hits) * 300 >= 4 * total:
             findings.append((where, hits[0], "check", "same verb in many sentences",

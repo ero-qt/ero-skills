@@ -240,6 +240,11 @@ class ParagraphChecks(unittest.TestCase):
                 "The guides are in the docs folder.\n")
         self.assertNotIn("same verb in many sentences", run_file(text)[1])
 
+    def test_negated_have_and_have_to_are_not_counted(self):
+        text = ("The repo does not have a config. Tools have to read flags. The tool doesn't have a cache. "
+                "Scripts have to pass a path.\n")
+        self.assertNotIn("same verb in many sentences", run_file(text)[1])
+
     def test_closing_restatement_is_flagged(self):
         text = "The build caches the restore step. This keeps the build fast.\n"
         self.assertIn("closing restatement", run_file(text)[1])
