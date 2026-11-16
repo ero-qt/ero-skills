@@ -256,10 +256,13 @@ def check_paragraphs(where, lines, findings, report=None):
         number = next((number for number in numbers if report is None or number in report), None)
         if number is not None:
             findings.append((where, number, "check", rule, excerpt.strip()))
+        return number is not None
 
     for block in paragraphs(lines):
         found = sentences(block)
         counts = [len(words(sentence)) for _, sentence in found]
+        # A run of sentences with the same skeleton gets 1 finding, not 1 for each sentence after the 2nd.
+        in_run = False
         for index, (number, sentence) in enumerate(found):
             if index and counts[index] <= 4 and counts[index - 1] >= 12 and "``" not in sentence:
                 add([number], "dramatic short sentence", sentence)
@@ -269,9 +272,13 @@ def check_paragraphs(where, lines, findings, report=None):
                 add([number], "hedge stack", sentence)
             if index >= 2:
                 three = found[index - 2:index + 1]
+                # Every code span turns into ``, so code span openers don't count as the same first word.
                 openers = {words(text)[0].lower() for _, text in three if words(text)}
-                if len(openers) == 1 or all(", and " in text for _, text in three):
-                    add([line for line, _ in three], "same skeleton in a row", sentence)
+                same = (len(openers) == 1 and openers != {"``"}) or all(", and " in text for _, text in three)
+                if not same:
+                    in_run = False
+                elif not in_run:
+                    in_run = add([line for line, _ in three], "same skeleton in a row", sentence)
         if len(found) >= 2 and CLOSERS.match(found[-1][1]):
             add([found[-1][0]], "closing restatement", found[-1][1])
         if len(found) >= 4 and max(counts) - min(counts) < 0.25 * sum(counts) / len(counts):

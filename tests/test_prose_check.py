@@ -225,6 +225,14 @@ class ParagraphChecks(unittest.TestCase):
         text = "The cache keeps 10 entries. The reader checks it first. The writer clears it on save.\n"
         self.assertIn("same skeleton in a row", run_file(text)[1])
 
+    def test_same_skeleton_run_is_reported_once(self):
+        text = "The cache keeps 10 entries. The reader checks it first. The writer clears it. The log shows it.\n"
+        self.assertEqual(run_file(text)[1].count("same skeleton in a row"), 1)
+
+    def test_code_span_openers_are_not_the_same_skeleton(self):
+        text = "`--staged` checks the diff. `--text` checks a subject. `--explain` prints a row.\n"
+        self.assertNotIn("same skeleton in a row", run_file(text)[1])
+
     def test_varied_openers_pass(self):
         text = "The cache keeps 10 entries. A read checks it first and the writer clears it on save.\n"
         self.assertNotIn("same skeleton in a row", run_file(text)[1])
