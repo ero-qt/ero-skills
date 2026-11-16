@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +11,7 @@ import unittest
 SCRIPT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "skills", "work-ethic", "scripts", "knobs.js"))
 CHECK = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", "..", "terse-replies", "scripts", "reply-check.js"))
 LEDGER = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", "..", "work-loop", "scripts", "ledger.js"))
+SKILLS = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", ".."))
 MARKETPLACE = os.path.join(os.path.dirname(__file__), "..", ".claude-plugin", "marketplace.json")
 NODE = shutil.which("node") or "node"
 LONG_GATE = "\n".join([f"`file{index}.py`: change {index}" for index in range(17)] + ["`Add retry limit`", "Approve?"])
@@ -308,6 +310,43 @@ class TerseReminder(KnobsCase):
 
         self.session("resume")
         self.assertIn("gated", self.prompt("fix the build"))
+
+
+def table_rows(path, heading):
+    """Returns the cells of each row of the first table under the heading."""
+    with open(path, encoding="utf-8") as file:
+        section = file.read().split(f"\n## {heading}\n", 1)[1].split("\n## ", 1)[0]
+    rows = [line.strip("|").split("|") for line in section.splitlines() if line.startswith("|")]
+    return [[cell.strip() for cell in row] for row in rows[2:]]
+
+
+def code_spans(cell):
+    return re.findall(r"`([^`]+)`", cell)
+
+
+# The knob tables of work-ethic, work-loop and terse-replies have to match the script.
+class KnobTables(KnobsCase):
+    def test_every_phrase_in_the_work_ethic_table_sets_its_knob(self):
+        for names, phrases in (row[:2] for row in table_rows(os.path.join(SKILLS, "work-ethic", "SKILL.md"), "Knobs")):
+            knob = code_spans(names)[0]
+            for phrase in code_spans(phrases):
+                if "<" in phrase:
+                    continue
+                value = {"normal replies": "off", "auto on": "auto", "auto off": "gated"}.get(phrase,
+                                                                                             phrase.split(" ", 1)[1])
+                with self.subTest(phrase=phrase):
+                    self.prompt(phrase)
+                    self.assertEqual(json.loads(self.show("--json", "--session", "one"))[knob], value)
+
+    def test_defaults_match_the_work_loop_and_terse_tables(self):
+        knobs = json.loads(self.show("--json"))
+        for names, _, default, _ in table_rows(os.path.join(SKILLS, "work-loop", "SKILL.md"), "Knobs"):
+            for knob in code_spans(names):
+                with self.subTest(knob=knob):
+                    self.assertEqual(knobs[knob], code_spans(default)[0] if "`" in default else default[4:])
+        terse = [row[1] for row in table_rows(os.path.join(SKILLS, "terse-replies", "SKILL.md"), "Levels")
+                 if "(default)" in row[1]]
+        self.assertEqual(terse, [f"{knobs['terse']} (default)"])
 
 
 class PluginHooks(unittest.TestCase):
