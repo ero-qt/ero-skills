@@ -115,6 +115,31 @@ class CommitGuard(unittest.TestCase):
 
         self.assert_denied(self.guard(f'git commit -F "{message}"'), "trailer")
 
+    # Only a trailer line of the message counts, not other commands or a subject that talks about trailers.
+    def test_trailer_words_outside_a_trailer_line_pass(self):
+        self.stage("parser.py", "x = 1\n")
+
+        for command in ['git commit -m "Add parser" && gh pr create --body "Generated with [Claude Code](x)"',
+                        'git commit -m "Deny a Signed-off-by: line in the guard"']:
+            with self.subTest(command=command):
+                self.assertIsNone(self.guard(command))
+
+    def test_trailer_is_reported_once(self):
+        self.stage("parser.py", "x = 1\n")
+
+        self.guard(f'git commit -m "Add parser" -m "{TRAILER}"')
+
+        self.assertEqual([slip["rule"] for slip in self.slips()], ["trailer"])
+
+    # `--signoff` adds a Signed-off-by line to the message.
+    def test_signoff_is_denied(self):
+        self.stage("parser.py", "x = 1\n")
+
+        for command in ['git commit -s -m "Add parser"', 'git commit --signoff -m "Add parser"',
+                        'git commit -sm "Add parser"']:
+            with self.subTest(command=command):
+                self.assert_denied(self.guard(command), "trailer")
+
     # A hard finding of the prose check in the staged lines denies the commit.
     def test_hard_prose_finding_in_staged_lines_is_denied(self):
         self.stage("notes.md", f"The parser stops {DASH} it reads 1 line.\n")

@@ -25,7 +25,7 @@ const PREFIX_WORDS = ['!', '{', 'command', 'do', 'elif', 'else', 'exec', 'if', '
 const PROSE_CHECK = path.join(__dirname, '..', '..', 'repo-writing', 'scripts', 'prose_check.py');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const STAGING_SUBCOMMANDS = ['add', 'mv', 'rm', 'stage'];
-const TRAILER = /\b(co-authored-by|signed-off-by):|generated with \[?claude|\u{1F916}/iu;
+const TRAILER = /^\s*(co-authored-by|signed-off-by):|generated with \[?claude|\u{1F916}/imu;
 
 const CHANGELOG = /^(changelog|changes|history)(\.(md|markdown|rst|txt))?$/i;
 const DOC = /\.(md|markdown|rst|adoc)$|^docs?\//i;
@@ -228,7 +228,7 @@ function findCommit(text, powershell, cwd) {
             staging.push(`git ${call.subcommand}`);
         } else if (call && call.subcommand === 'commit') {
             const commit = readCommitArgs(call.args, heredocs, call.dir);
-            return { dir: call.dir, message: commit.message, staging: staging.concat(commit.staging) };
+            return { ...commit, dir: call.dir, staging: staging.concat(commit.staging) };
         }
     }
 
@@ -236,10 +236,12 @@ function findCommit(text, powershell, cwd) {
 }
 
 // Reads the message of `git commit` from -m, --message, -F and --file. Also lists the flags and paths
-// that stage files. Short flags can come joined, like -qm. `-F -` reads the heredoc of the command.
+// that stage files and notes --signoff. Short flags can come joined, like -qm. `-F -` reads the heredoc.
 function readCommitArgs(args, heredocs, dir) {
     const parts = [];
     const staging = [];
+    let hasMessage = false;
+    let signoff = false;
     const readFile = (name) => {
         if (name === '-') {
             parts.push(...heredocs);
@@ -254,8 +256,10 @@ function readCommitArgs(args, heredocs, dir) {
     };
     const takeValue = (flag, value) => {
         if (flag === 'm' || flag === 'message') {
+            hasMessage = true;
             parts.push(value);
         } else if (flag === 'F' || flag === 'file') {
+            hasMessage = true;
             readFile(value);
         }
     };
@@ -272,6 +276,8 @@ function readCommitArgs(args, heredocs, dir) {
             const [, flag, joined] = long;
             if (COMMIT_STAGING_FLAGS.includes(flag)) {
                 staging.push(`--${flag}`);
+            } else if (flag === 'signoff') {
+                signoff = true;
             } else if (COMMIT_VALUE_FLAGS.includes(flag)) {
                 takeValue(flag, joined !== undefined ? joined : args[++index] || '');
             }
@@ -280,6 +286,8 @@ function readCommitArgs(args, heredocs, dir) {
                 const flag = arg[at];
                 if ('aiop'.includes(flag)) {
                     staging.push(`-${flag}`);
+                } else if (flag === 's') {
+                    signoff = true;
                 } else if ('mFCct'.includes(flag)) {
                     takeValue(flag, arg.slice(at + 1) || args[++index] || '');
                     break;
@@ -292,7 +300,7 @@ function readCommitArgs(args, heredocs, dir) {
         }
     }
 
-    return { message: parts.join('\n\n'), staging };
+    return { message: parts.join('\n\n'), hasMessage, signoff, staging };
 }
 
 function readJson(file) {
@@ -398,11 +406,16 @@ function check(event) {
             + 'below read an index that is about to change. Stage by path first, then commit in its own command.'));
     }
 
-    if (TRAILER.test(command) || TRAILER.test(message)) {
+    // The whole command only counts when the message flag has a value the parser can't read, like `-m $msg`.
+    const unread = commit.hasMessage && !message.trim();
+    const trailer = commit.signoff || TRAILER.test(message) || (unread && TRAILER.test(command));
+    if (trailer) {
         findings.push(hard('trailer', 'the commit message has a Co-Authored-By, Signed-off-by or generated-with line'));
     }
 
-    const prose = proseCheck(dir, ['--staged']).concat(message.trim() ? proseCheck(dir, ['--text', message], 'message') : []);
+    const messageProse = message.trim() ? proseCheck(dir, ['--text', message], 'message') : [];
+    const prose = proseCheck(dir, ['--staged'])
+        .concat(trailer ? messageProse.filter((line) => !/: hard: trailer:/.test(line)) : messageProse);
     for (const line of prose) {
         findings.push(hard('prose check', line));
     }
