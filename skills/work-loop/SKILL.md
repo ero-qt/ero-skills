@@ -5,7 +5,7 @@ description: "Use for any coding task on a repository (fix, feature, refactor, r
 
 # Work loop
 
-One change, one fixed path, a gate before every artifact. The loop is the job, not a suggestion: dropping a step because the task looks small or the session is long or a compaction happened is exactly what this skill exists to stop.
+One change, one fixed path, a gate before every artifact. The size of each commit decides which steps it needs. Don't drop a step because the task looks small, the session is long or a compaction happened.
 
 Paths like `<skills>/repo-writing/scripts/prose_check.py` start at the folder that holds these skills, one level above the base directory shown when a skill loads. Run Python scripts with `python3` (`python` on Windows).
 
@@ -13,22 +13,9 @@ Once loaded, the loop stays on for the rest of the session. After a compaction o
 
 Sidebars, quick questions and exploration stay flexible. The loop applies once work will end in a commit, an issue, a PR or a comment.
 
-## The order
-
-```
-state check -> read-back -> Go? -> research -> (issue draft -> Approve?)+ -> create issue -> branch
-  -> prior art -> plan -> Go?
-  -> ( failing test -> code -> narrow tests, CI's format and lint -> end-to-end run -> prose sweep
-       -> stage by path -> present -> Approve? -> commit )+
-  -> review (read-only, no chat context) -> (findings -> commit loop)*
-  -> (PR draft -> Approve?)+ -> open PR -> report -> watch reviews and CI
-```
-
-A rejected gate is a lap: rework, restage, present again. Nothing is committed, opened or posted between a rejection and the next approval.
-
 ## Gates
 
-- The gate words are `Go?`, `Approve?` and `Review?`. Whatever the word gates (the read-back, the plan, the full draft, the commit table) sits in chat above it, verbatim, never described.
+- The gate words are `Go?`, `Approve?` and `Review?`. Whatever the word gates (the read-back, the plan, the full draft, the commit) sits in chat above it, verbatim, never described.
 - Ask a gate in plain chat as the last line of the turn, so the draft above it stays visible.
 - Use the question tool for real choices between options (pick an approach, pick a name, answer a blocker). Make each option self-contained with the recommended one first. Put the reasons inside the option descriptions, since text above the question can be hidden.
 - Only an explicit approve or a clear yes opens a gate. It covers only the one item just shown. "ok", "ya", "sure", "in" count as yes when they answer the gate. An acknowledgment ("ah i missed it"), frustration ("do whatever", "fine, whatever"), or approval of the work is not approval of the text. When the user clearly approves mid-thread ("i'm clearly approving this commit right now"), take it.
@@ -41,6 +28,34 @@ A rejected gate is a lap: rework, restage, present again. Nothing is committed, 
   - When signing needs a passphrase and the user is away, commit nothing more and report it.
   - Watch CI for up to 30 minutes. Still pending after that: report it as pending.
   - End the stretch with one report: what was done and pushed, what waits and why, then one question tool call holding every queued decision.
+
+## Size and loop level
+
+Before you start a commit, give its size and the loop level in 1 line with the reason, like `size: trivial (rename, the compiler proves it), loop: standard`. Pick the first size that fits:
+
+| Size | Rule | Examples |
+|---|---|---|
+| trivial | No logic changes. The compiler, formatter or tests prove it. | rename, version bump, sort, format, generated file |
+| small | 1 behavior, no new public name, about 50 changed lines or fewer | fix with 1 test, message wording, doc fix |
+| medium | A new type that isn't public, several behaviors, or a change to the public surface | new option, refactor across files |
+| large | New feature, new public type, new dependency, new tool, or more than about 300 lines | a slice of a feature |
+
+The loop level is `light`, `standard` or `strict`. `standard` is the default. `strict` adds stages and `light` drops some. [references/stages.md](references/stages.md) lists the stages of each size at each level, what each one does and the proof it writes to the ledger. Change the size or the level only when the user says so.
+
+A trivial change doesn't get research, a plan or a review. Give the size line, make the change and show the commit gate.
+
+## The order
+
+```
+state check -> read-back -> Go? -> research -> (issue draft -> Approve?)+ -> create issue -> branch
+  -> prior art -> plan -> Go?
+  -> ( size and level -> failing test -> code -> narrow tests, CI's format and lint -> end-to-end run
+       -> prose sweep -> stage by path -> present -> Approve? -> commit )+
+  -> review (read-only, no chat context) -> (findings -> commit loop)*
+  -> (PR draft -> Approve?)+ -> open PR -> report -> watch reviews and CI
+```
+
+A rejected gate is a lap: rework, restage, present again. Nothing is committed, opened or posted between a rejection and the next approval.
 
 ## 0. State check
 
@@ -92,19 +107,19 @@ Skip this step on repos that don't use issues or when the user tells you to. Whe
 
 - Check prior art before planning: a sibling in the repo, the library's docs, the user's own earlier attempts and reference repos, one or two known implementations. When a recognized model exists, follow it instead of reinventing beside it. When the repo already has a precedent for this kind of change, follow it without asking the maintainers first.
 - Settle the public API shape before sketching an implementation.
-- Post the plan as a numbered list, one commit per item, each line with the behavior it covers and its first failing test. `Go?`
+- Post the plan as a numbered list, one commit per item, each line with its size, the behavior it covers and its first failing test. `Go?`
 - When the repo doesn't have a test setup, the plan starts with a commit that adds one in the language's standard form (`unittest` or `pytest` for Python, `cargo test` for Rust) and CI to run it.
 - Build only what was asked and what the issue needs. Don't build ahead of the layer you're on. Never cut or weaken a feature the user called required. Propose a later slice instead. Don't bring back a rejected design under a new name.
 
 ## 6. Commit loop
 
-Work the whole change out end to end, then stage and present exactly one commit at a time.
+Work the whole change out end to end, then stage and present exactly one commit at a time. Leave out the steps its size skips.
 
 1. Write one failing test, in its own tool call. For a fix whose failure CI already shows (a lint error, a type error), that failing CI job is the failing test: reproduce it locally first. Run it and confirm it fails for the intended reason. A test that passes on its first run gets rewritten until it fails.
 2. Write the least code that passes it, in a separate tool call. The test and the code go into the same commit.
-3. Run the narrow tests for the touched area. Run the format and lint commands CI runs, verbatim, not a narrower variant. Fix every warning in touched files.
+3. Run the narrow tests for the touched area. Run the format and lint commands CI runs, verbatim, not a narrower variant. Fix every warning in touched files. [references/stages.md](references/stages.md) has the rules for running tests and builds.
 4. Run the real thing end to end on every OS and path the change touches (the binary, the game, the tool, the page). Passing tests and a hand-run equivalent are not enough. When a check needs an app or game running and it isn't, ask the user to start it right away.
-5. Decide whether the change belongs in the changelog: anything a user of the project would notice does. A fix to something not released yet changes the existing `Unreleased` entry instead of adding one. Tests, CI and refactors get no entry. When the repo keeps one, add the entry in the same commit under `## [Unreleased]`, in the file's own form. Without a house form, follow [Keep a Changelog 2.0.0](https://keepachangelog.com/en/2.0.0/): the types `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security` in that order, and a `**Breaking:**` marker on breaking entries. Say in the presentation whether the commit got an entry and why.
+5. Decide whether the change belongs in the changelog: anything a user of the project would notice does. A fix to something not released yet changes the existing `Unreleased` entry instead of adding one. Tests, CI and refactors get no entry. When the repo keeps one, add the entry in the same commit under `## [Unreleased]`, in the file's own form. [references/stages.md](references/stages.md) has the form for a repo without one. Say in the presentation whether the commit got an entry and why.
 6. Sweep every new line of prose (comments, doc comments, test names, the commit subject) for tells: run `python3 <skills>/repo-writing/scripts/prose_check.py --staged` after staging and fix what it flags.
 7. Stage by explicit path. Commits are the one draft with their own shape, the table below. Run `git status --short` first and read it. Never `git add -A` or `git commit -a`. Every staged hunk must match the commit subject. An untracked file never rides along in an unrelated commit.
 8. Present in this shape, then end the turn:
@@ -127,14 +142,6 @@ Approve? Next: <what comes after> (<n+1>/<m>).
 
 9. On approve, `git commit -m "<subject>"` with that subject exactly. Nothing else in the same turn.
 
-Running tests and builds:
-
-- Never pipe a test, build or sweep run through `grep`, `head` or `tail`. Redirect the whole run to a log file in the scratchpad, then read the file: `cargo test --offline > "$SP/test-<what>.log" 2>&1; echo "exit $?"`.
-- Never start a run while another run of the same project is alive. Never edit or build a project while its run is in flight.
-- Never rerun the full suite after a narrow fix that the narrow run already verified. Never retry a long command unchanged. Change something or report.
-- Reuse finished artifacts and measurements instead of rebuilding them.
-- Make long runs print progress and run headless, with no windows or prompts stealing focus. Give the user a command to watch them.
-
 Fixups and scope:
 
 - Amend a wording fix into the commit that introduced the line (check with `git blame`). Present the fixup before committing it. Behavior changes and refactors get their own commits. Never restructure inside a fixup.
@@ -144,7 +151,7 @@ Fixups and scope:
 
 ## 7. Review
 
-Run it before every PR, also in autonomous mode. Skip it only when the user tells you to.
+Run it before every PR, also in autonomous mode. Skip it only when the user tells you to, or when the branch has only trivial commits.
 
 - Say in chat which model and effort the reviewer runs at, then `Review?`.
 - The reviewer is one read-only agent with no chat context. Give it the issue text, the full diff against the base and the test command. Tell it not to edit anything and not to start long processes. Have it work through [references/review-checklist.md](references/review-checklist.md) and return a verdict line and a table of severity, location, finding and the input that shows it.
@@ -166,7 +173,7 @@ Run it before every PR, also in autonomous mode. Skip it only when the user tell
 - Re-requesting a review through the API often fails on repos the user doesn't own. Give the PR link and the click: Reviewers, the ↻ button next to the reviewer's name.
 - After a merge: fetch, rebase dependent branches, delete the merged branch with the user's OK, then present what's next.
 - Finish the current issue completely before starting the next one.
-- A release bumps the version by [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html) (breaking: major, feature: minor, fix: patch), turns `## [Unreleased]` into `## [x.y.z] - YYYY-MM-DD` with a fresh empty `Unreleased` above it, and updates the compare links at the bottom of the changelog. Tags follow the repo's form.
+- For a release, follow [references/stages.md](references/stages.md).
 
 ## Permissions and safety
 
