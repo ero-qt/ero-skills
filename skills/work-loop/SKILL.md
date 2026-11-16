@@ -22,13 +22,7 @@ Sidebars, quick questions and exploration stay flexible. The loop applies once w
 - A correction to a draft opens its gate again. Show the new draft and ask again.
 - Never open, post, edit, commit or push before its gate returns. Never call anything committed, opened or posted before it is. If something went out early, fix it at once and say so.
 - When the user posts in their own name, hand them the text and stop. Never post for them unless told.
-- Autonomous mode exists only when the user grants it in words for a stretch of work. Then skip the per-commit, PR-text and `Review?` gates, but keep the commit style, staging by path, the review itself, the end-to-end check and the CI watch. Still never push the default branch.
-  - Permissions and safety below still apply: no downloads, installs, deletes, force pushes or posts in the user's name without a yes.
-  - A design fork, an unreadable failure or a reserved decision stops only that item. Independent work goes on. A public API break counts as a design fork.
-  - Rebasing your own unpushed commits onto a branch a maintainer updated is fine, since the push stays a fast-forward.
-  - When signing needs a passphrase and the user is away, commit nothing more and report it.
-  - Watch CI for up to 30 minutes. Still pending after that: report it as pending.
-  - End the stretch with one report: what was done and pushed, what waits and why, then one question tool call holding every queued decision.
+- At `autonomy: auto`, commit after the driver verify without asking. Pushes, PRs, comments, tags and deletes outside the repo still need their gate unless the user okayed them up front. A design fork waits in the plan file while independent work goes on. [references/stages.md](references/stages.md) has the rules for a stretch on auto.
 
 ## Size and loop level
 
@@ -38,12 +32,27 @@ Before you start a commit, give its size and the loop level in 1 line with the r
 |---|---|---|
 | trivial | No logic changes. The compiler, formatter or tests prove it. | rename, version bump, sort, format, generated file |
 | small | 1 behavior, no new public name, about 50 changed lines or fewer | fix with 1 test, message wording, doc fix |
-| medium | A new type that isn't public, several behaviors, or a change to the public surface | new option, refactor across files |
-| large | New feature, new public type, new dependency, new tool, or more than about 300 lines | a slice of a feature |
+| medium | A new type that isn't public, several behaviors or a change to the public surface | new option, refactor across files |
+| large | New feature, new public type, new dependency, new tool or more than about 300 lines | a slice of a feature |
 
 The loop level is `light`, `standard` or `strict`. `standard` is the default. `strict` adds stages and `light` drops some. [references/stages.md](references/stages.md) lists the stages of each size at each level, what each one does and the proof it writes to the ledger. Change the size or the level only when the user says so.
 
 A trivial change doesn't get research, a plan or a review. Give the size line, make the change and show the commit gate.
+
+## Knobs
+
+The user's choices for a repo are in `.git/work-loop/knobs.json`, like `{"loop": "strict", "issues": "never"}`. Read it in the state check. When the user sets a knob for the repo, write it there. The commit guard also reads the user's defaults from `knobs.json` in the plugin's data folder. The repo file wins over it. A knob that isn't set uses its default.
+
+| Knob | Values | Default | What it changes |
+|---|---|---|---|
+| `loop` | `light`, `standard`, `strict` | `standard` | The stages each size runs |
+| `autonomy` | `gated`, `auto` | `gated` | `auto` skips the commit gate. Only the user's words turn it on for 1 stretch of work. It never goes in the file. |
+| `docs` | `repo`, `on`, `off` | `repo` | The docs step. `repo` follows the repo's rules and files and suggests docs once for a new repo. |
+| `issues` | `house`, `after-code`, `never` | `house` | The issue step |
+| `narrate` | `silent`, `milestones` | `silent` | `milestones` adds a 1-line note at each step for a user who can't watch the session |
+| `review-model`, `plan-model`, `impl-model` | a model and an effort | the session model | The model of each kind of agent, always passed by name |
+| `worktrees` | `off`, `parallel` | `off` | `parallel` puts independent work in its own worktree while a long run goes on |
+| `cleanup` | `ask`, `auto` | `ask` | Whether you ask before you delete a merged branch, locally and on the fork |
 
 ## The order
 
@@ -80,18 +89,11 @@ One line with the change as understood and the options in effect (branch name, i
 
 ## 2. Research
 
-Knowledge for the drafts, not a message.
-
-- Read the code the change touches and its tests. Read the actual code of any reference implementation before describing or planning a mechanism, even in a one-line answer. If what you would write doesn't have a counterpart in the code, ask instead of inventing it.
-- Look for an existing API, base type or helper before adding one (`rg` for the concept, the repo's own base classes, the user's reference repos).
-- Read the house style: `CONTRIBUTING*`, `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE*`, `.editorconfig`, linter and analyzer config, the CI workflow files (for the exact commands CI runs), `git log --format=%s -30`, recent merged PR titles and bodies. A new project with no precedent follows the language's or the industry's standard.
-- Read the repo's planning or agent docs (`AGENTS.md`, `CLAUDE.md`, decision logs) alongside the code, never instead of it. Notes written down from the user's offhand comments are context, not law. The user's current words win.
-- Measure instead of guessing. One quick test settles a suspected cause faster than reading. Before filing a bug from a symptom, trace the symptom back to its first wrong value. Before claiming something is missing, check whether the code, the disk or the reference already has it.
-- Verify every factual claim (what is merged, released, built, what an API does) before stating it.
+Knowledge for the drafts, not a message. Read the code the change touches, its tests and the repo's house style. Verify every factual claim before you state it. [references/stages.md](references/stages.md) has the full list.
 
 ## 3. Issue
 
-Skip this step on repos that don't use issues or when the user tells you to. When you can't tell (no history, issues unreadable), ask in the read-back.
+Follow the `issues` knob. At `house`, skip this step on repos that don't use issues. Ask in the read-back when you can't tell (no history, issues unreadable). `after-code` files the issue once the code works, before the PR. `never` skips it.
 
 - File only a confirmed cause. A theory gets said as a theory in chat, not filed.
 - Draft with repo-writing and show it the way repo-writing §10 shows every draft. `Approve?` On approve, `gh issue create --repo <owner/repo> --title "..." --body-file -` with the body on stdin, once. Keep the number.
@@ -101,7 +103,7 @@ Skip this step on repos that don't use issues or when the user tells you to. Whe
 
 - Name it like the repo's history. Without a precedent: `issue-<N>` for issue work, `issue-<N>/<part>` when the issue will have parts, `<kind>/<slug>` (`fix/`, `feat/`) for work without an issue. Never a PR number and never a number plus a slug.
 - Branch off the default branch. When the change builds on unmerged work, branch off that work and mark the PR as depending on it.
-- Work in the main checkout. No worktrees unless the user asks.
+- Work in the main checkout. Use a worktree only at `worktrees: parallel`.
 - On someone else's repo, work through the user's fork only: `origin` is the fork, `upstream` is fetch-only with its push URL set to `DISABLED` (`git remote set-url --push upstream DISABLED`). Open PRs with `gh pr create --repo <org>/<repo> --head <user>:<branch>`.
 
 ## 5. Prior art and plan
@@ -120,15 +122,15 @@ Work the whole change out end to end, then stage and present exactly one commit 
 2. Write the least code that passes it, in a separate tool call. The test and the code go into the same commit.
 3. Run the narrow tests for the touched area. Run the format and lint commands CI runs, verbatim, not a narrower variant. Fix every warning in touched files. [references/stages.md](references/stages.md) has the rules for running tests and builds.
 4. Run the real thing end to end on every OS and path the change touches (the binary, the game, the tool, the page). Passing tests and a hand-run equivalent are not enough. When a check needs an app or game running and it isn't, ask the user to start it right away.
-5. Decide whether the change belongs in the changelog: anything a user of the project would notice does. A fix to something not released yet changes the existing `Unreleased` entry instead of adding one. Tests, CI and refactors get no entry. When the repo keeps one, add the entry in the same commit under `## [Unreleased]`, in the file's own form. [references/stages.md](references/stages.md) has the form for a repo without one.
+5. Unless `docs` is `off`, decide whether the change belongs in the changelog: anything a user of the project would notice does. A fix to something not released yet changes the existing `Unreleased` entry instead of adding one. Tests, CI and refactors get no entry. When the repo keeps one, add the entry in the same commit under `## [Unreleased]`, in the file's own form. [references/stages.md](references/stages.md) has the form for a repo without one.
 6. Sweep every new line of prose (comments, doc comments, test names, the commit subject) for tells: run `python3 <skills>/repo-writing/scripts/prose_check.py --staged` after staging and fix what it flags.
 7. Stage by explicit path. Run `git status --short` first and read it. Never `git add -A` or `git commit -a`. Every staged hunk must match the commit subject. An untracked file never rides along in an unrelated commit.
-8. Present in this shape and end the turn. The gate fits in 12 lines, with all checks on 1 line and the subject right above `Approve?`. Add up to 3 points, and only ones the user has to decide. Leave it staged for the user's editor.
+8. Present in this shape and end the turn. The gate fits in 12 lines, with all checks on 1 line and the subject right above `Approve?`. Add up to 3 points the user has to decide. Leave it staged for the user's editor.
 
 ````
 **<what the commit does, one line>** (<size>, <loop level>)
 [file.rs](path/file.rs), [other.rs](path/other.rs): <what changed>
-Checks: `<test command>` <last line>, end to end <what it showed>, prose 0 hard, changelog <added, or why none>
+Checks: `<test command>` <last line>, end to end <what it showed>, prose 0 hard, changelog <added or why none>
 - <a point that needs a decision>
 
 `<commit subject>`
@@ -146,9 +148,9 @@ Fixups and scope:
 
 ## 7. Review
 
-Run it before every PR, also in autonomous mode. Skip it only when the user tells you to, or when the branch has only trivial commits.
+Run it before every PR, also in autonomous mode. Skip it only when the user tells you to or when the branch has only trivial commits.
 
-- Say in chat which model and effort the reviewer runs at, then `Review?`.
+- Run the reviewer on `review-model`. Say in chat which model and effort it runs at, then `Review?`.
 - The reviewer is one read-only agent with no chat context. Give it the issue text, the full diff against the base and the test command. Tell it not to edit anything and not to start long processes. Have it work through [references/review-checklist.md](references/review-checklist.md) and return a verdict line and a table of severity, location, finding and the input that shows it.
 - Judge every finding on its merits. Rebut a wrong but plausible one instead of appeasing it. Real findings go back through the commit loop, test first.
 - When a reviewer flags one site, rerun that criterion over the whole function and diff.
@@ -166,7 +168,7 @@ Run it before every PR, also in autonomous mode. Skip it only when the user tell
 - Before any force-push, `git fetch` and read the remote branch. Keep commits a maintainer pushed and push with `--force-with-lease`.
 - Rebase only the PR the user points at, and only when it conflicts.
 - Re-requesting a review through the API often fails on repos the user doesn't own. Give the PR link and the click: Reviewers, the ↻ button next to the reviewer's name.
-- After a merge: fetch, rebase dependent branches, delete the merged branch with the user's OK, then present what's next.
+- After a merge: fetch, rebase dependent branches, delete the merged branch locally and on the fork (ask first at `cleanup: ask`), then present what's next.
 - Finish the current issue completely before starting the next one.
 - For a release, follow [references/stages.md](references/stages.md).
 
@@ -174,7 +176,7 @@ Run it before every PR, also in autonomous mode. Skip it only when the user tell
 
 - Ask before any download or install and state the file, the source and the size. First check that a command can't install silently (`rustup toolchain list`, `cargo --offline`, `npm` without `-g`, no global installs ever). Check free disk space before anything large.
 - Never push unless told. Never push the default branch. Push only to the remote the user set up.
-- Deleting anything (files, branches, releases, assets) needs the user's OK. Never revert, check out, stash or overwrite a change you didn't make. Restore by exact path, never by directory.
+- Deleting anything (files, branches, releases, assets) needs the user's OK, except a merged branch at `cleanup: auto`. Never revert, check out, stash or overwrite a change you didn't make. Restore by exact path, never by directory.
 - Treat the uncommitted changes you made as yours. Never call your own work the user's ("your change", "your pin").
 - Edit with the Edit tool. Preserve each file's encoding, BOM and line endings. After any scripted edit, check for NUL bytes and changed line endings.
 - Before a multi-agent fan-out, state the agent count and model in one line and get a yes. Keep it small (9 or fewer). Run agents that build or test one at a time with capped parallelism. Read-only agents may run together but must not start processes.
