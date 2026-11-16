@@ -5,6 +5,7 @@ Usage:
     python prose_check.py --text "add tick provider"
     python prose_check.py --staged                check added lines of the staged diff
     python prose_check.py < draft.md              check stdin
+    python prose_check.py --explain "triad"       print why a rule flags and the fix
 
 Each finding prints as `where:line: kind: rule: excerpt`. A `hard` finding breaks a
 rule with no exceptions (dashes, trailers, curly quotes, NUL bytes) and makes the
@@ -18,6 +19,7 @@ openers, a verb used over and over. Every file and stdin also get a line like
 a clean run proves nothing. A person still reads anything longer than a subject.
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -32,7 +34,8 @@ HARD = [
 CHECK = [
     ("'name' as a verb", re.compile(r"\b(names|named|naming)\b|\bname (the|a|an|its|one|each|every|both|them|it)\b", re.I)),
     ("'says' for code or output", re.compile(r"\b(says|saying)\b|\bsays so\b", re.I)),
-    ("'has no' or 'no other'", re.compile(r"\b(has|have|had) no\b|\bno other\b", re.I)),
+    ("clipped negation", re.compile(
+        r"\b(has|have|had|finds?|found|returns?|allocates?) (no|nothing)\b|\bno other\b", re.I)),
     ("'lands'", re.compile(r"\b(lands?|landed|landing)\b", re.I)),
     ("'hold' or 'held'", re.compile(r"\b(hold|holds|held|holding)\b", re.I)),
     ("'carry'", re.compile(r"\b(carry|carries|carried|carrying)\b", re.I)),
@@ -45,7 +48,34 @@ CHECK = [
     ("validation", re.compile(r"\byou'?re (absolutely )?right\b", re.I)),
     ("framing phrase", re.compile(
         r"\bnote that\b|\bworth (noting|mentioning)\b|\bit'?s worth\b|\bone trap\b|\bnext up\b|"
-        r"\bcoming soon\b|\btests? cover\b|\blet'?s dive\b|\bhere'?s the thing\b", re.I)),
+        r"\bcoming soon\b|\btests? cover\b|\blet'?s dive\b|\bhere'?s the thing\b|\bimportantly\b|"
+        r"\bin summary\b|\bto summari[sz]e\b|\bit'?s important to\b", re.I)),
+    ("copula dodge", re.compile(r"\b(serves?|served|acts?|acted|functions?) as (a|an|the)\b|\bboasts?\b", re.I)),
+    ("participle tail", re.compile(
+        r", (ensuring|allowing|enabling|making|highlighting|reflecting|providing|leaving)\b", re.I)),
+    ("contrast frame", re.compile(
+        r"\bnot (just|only|merely) [^.]{1,60}\bbut\b|\b(isn'?t|is not|aren'?t|wasn'?t)\b[^.]{1,60}, "
+        r"(it'?s|it is|they'?re)\b|\brather than\b", re.I)),
+    # 3 lowercase words that end the clause, because a list of names like "Linux, Mac and Windows" or of
+    # longer items like "the config, the cache and the log" is a real list.
+    ("triad", re.compile(r"\b[a-z]+, [a-z]+,? (and|or) [a-z]+(?=[.,;:!?)]|$)")),
+    ("fronted clause", re.compile(
+        r"(^|[.!?] )\s*([-*] )?(Because|Since|While|Although|Given|With|By \w+ing)\b|(^|[.!?] )``,? is an?\b")),
+    ("colon setup", re.compile(
+        r"^(?!(Usage|Note|Example|Examples|Title|Body|Before|After|Bad|Good|Rejected|Written instead|Fix|Tip|"
+        r"Warning|Important|Default|Output|Input|Source|Sources):)[A-Z][^.:`]{3,40}: [a-z]")),
+    ("nominalization", re.compile(
+        r"\b(perform|provide|make|do|give|offer)(s|ed|ing)? (a |an |the )?\w+(tion|ment|ance|ence|sion)\b|"
+        r"\bprovides? support for\b", re.I)),
+    ("formal connective", re.compile(
+        r"(^|[.!?] )\s*([-*] )?(Moreover|Additionally|Furthermore|Consequently|Notably|Thus|Hence)\b")),
+    ("significance claim", re.compile(
+        r"\bplays? an? (key|important|crucial|vital|central|major) role\b|\bpain points?\b|"
+        r"\bcommon (source of|pitfall)\b", re.I)),
+    ("announcing intro", re.compile(
+        r"\bthere are \d+ (things|steps|parts|ways|reasons)\b|"
+        r"\bthis (section|document|page|guide|PR|change) (covers|describes|explains|walks)\b", re.I)),
+    ("teaching tone", re.compile(r"\bplease (ensure|make sure|note|remember)\b|\bensure that\b", re.I)),
     ("'here' for the user's machine", re.compile(
         r"\b(run|runs|ran|installed|works?|worked|built|build|test(ed)?) (it |them )?here\b|\bthis machine\b", re.I)),
     ("history word", re.compile(r"\b(previously|used to|no longer|anymore)\b", re.I)),
@@ -58,6 +88,12 @@ CHECK = [
     # Skips greetings like "Hey!" and "Thanks!", which the user writes on purpose.
     ("exclamation mark", re.compile(r"\w(?<!\bhey)(?<!\bhi)(?<!\bthanks)(?<!\bthank you)!(\s|$)", re.I)),
     ("spaced hyphen used as a dash", re.compile(r"\w - \w")),
+]
+
+# Rules for code comments only, because people do know and want things in prose.
+COMMENT_ONLY = [
+    ("code that talks or thinks", re.compile(r"\b(tells?|asks?|answers?|knows?|wants?|decides?)\b", re.I)),
+    ("'now' in a comment", re.compile(r"\bnow\b", re.I)),
 ]
 
 MARKDOWN = [
@@ -77,8 +113,10 @@ NOT_BRITISH = {"raise", "raised", "raises", "raising", "praise", "praised", "pra
                "supervise", "improvise", "compromise", "disguise", "chastise", "despise", "excise", "incise",
                "poise", "turquoise", "tortoise", "porpoise", "treatise", "merchandise", "anise"}
 
-# Files that quote bad examples on purpose, so the paragraph pass would flag the examples.
+# Files that quote bad examples on purpose. They only get the hard rules, since every other rule
+# would flag the examples.
 QUOTES_BAD_EXAMPLES = ("SKILL.md", "tells.md")
+TELLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references", "tells.md")
 
 # Verbs a draft tends to use for every sentence about contents. Each group counts as 1 verb.
 FLAT_VERBS = {
@@ -87,7 +125,7 @@ FLAT_VERBS = {
     "includes": ("includes", "include"), "offers": ("offers", "offer"), "uses": ("uses",), "gives": ("gives",),
     "makes": ("makes",),
 }
-HEDGES = re.compile(r"\b(may|might|could|potentially|possibly|perhaps|somewhat|arguably|likely|probably|"
+HEDGES = re.compile(r"\b(may|might|could(?! not)|potentially|possibly|perhaps|somewhat|arguably|likely|probably|"
                     r"generally|typically|in some (cases|setups|situations)|tends? to)\b", re.I)
 REASONS = re.compile(r"\b(because|since|so|which)\b", re.I)
 CLOSERS = re.compile(r"^(This|That|Overall|In short|Ultimately)\b")
@@ -123,7 +161,7 @@ def strip_code(line):
     return re.sub(r"https?://\S+", "", line)
 
 
-def check_line(where, number, text, markdown, findings):
+def check_line(where, number, text, markdown, findings, comment=False):
     # Heading sizes only matter in PR, issue and comment bodies, not in files with their own heading format.
     if markdown and not where.rsplit("/", 1)[-1].upper().startswith(("README", "CHANGELOG", "SKILL")):
         for rule, pattern in MARKDOWN:
@@ -134,7 +172,9 @@ def check_line(where, number, text, markdown, findings):
     for rule, pattern in HARD:
         if pattern.search(prose):
             findings.append((where, number, "hard", rule, text.strip()))
-    for rule, pattern in CHECK:
+    if quotes_bad_examples(where):
+        return
+    for rule, pattern in CHECK + (COMMENT_ONLY if comment else []):
         matches = [match.group(0).lower() for match in pattern.finditer(prose)]
         if rule == "British spelling":
             matches = [word for word in matches if word not in NOT_BRITISH]
@@ -316,7 +356,7 @@ def check_staged(findings, densities):
             for number, line in lines.items():
                 comment = comment_text(path, line)
                 if comment:
-                    check_line(path, number, comment, False, findings)
+                    check_line(path, number, comment, False, findings, comment=True)
 
     names = subprocess.run(["git", "diff", "--cached", "--name-only", "-z"],
                            capture_output=True).stdout.split(b"\0")
@@ -328,6 +368,27 @@ def check_staged(findings, densities):
                 findings.append((name.decode(errors="replace"), 0, "hard", "NUL byte in a text file", ""))
 
 
+def explain(rule):
+    """Returns the row of a rule in tells.md as `label: value` lines, or None when tells.md doesn't list the rule.
+
+    A row lists the rules that flag it in backticks in its last column.
+    """
+    with open(TELLS, encoding="utf-8") as file:
+        level, header = None, None
+        for line in file:
+            if line.startswith("## "):
+                level, header = line[3:].strip(), None
+            elif not line.startswith("|"):
+                header = None
+            elif header is None:
+                header = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            elif not set(line.strip()) <= set("|-: "):
+                cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+                if f"`{rule}`" in cells[-1]:
+                    return "\n".join([f"Level: {level}"] + [f"{name}: {cell}" for name, cell in zip(header, cells)])
+    return None
+
+
 def main(args):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")
@@ -337,6 +398,11 @@ def main(args):
     elif args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
+    elif args[0] == "--explain":
+        rule = " ".join(args[1:])
+        row = explain(rule)
+        print(row or f"tells.md doesn't list a rule called '{rule}'")
+        return 0 if row else 1
     elif args[0] == "--staged":
         check_staged(findings, densities)
     elif args[0] == "--text":

@@ -1,5 +1,6 @@
 """Tests for skills/repo-writing/scripts/prose_check.py, run with `python3 -m unittest`."""
 
+import importlib.util
 import os
 import subprocess
 import sys
@@ -71,9 +72,9 @@ class CheckRules(unittest.TestCase):
 
     def test_clipped_negation_is_flagged(self):
         for text in ("the repo has no samples folder", "the tests have no fixtures", "the old build had no cache",
-                     "shares its config with no other service"):
+                     "shares its config with no other service", "the search finds nothing", "it allocates nothing"):
             with self.subTest(text=text):
-                self.assertIn("'has no' or 'no other'", run("--text", text)[1])
+                self.assertIn("clipped negation", run("--text", text)[1])
 
     def test_negation_with_doesnt_passes(self):
         self.assertEqual(run("--text", "the repo doesn't have a samples folder")[1], "0 hard, 0 to check\n")
@@ -93,6 +94,91 @@ def run_file(text, name="draft.md"):
         with open(path, "w", encoding="utf-8", newline="\n") as file:
             file.write(text)
         return run(path)
+
+
+class SpecRules(unittest.TestCase):
+    # Each rule gets 1 text it flags and 1 close text it lets through.
+    CASES = {
+        "copula dodge": ("`Cache` serves as a store for parsed files", "`Cache` keeps the parsed files"),
+        "participle tail": ("It retries, ensuring delivery.", "It retries until the server answers."),
+        "contrast frame": ("This isn't a cache, it's a ledger.", "This is a ledger of every write."),
+        "triad": ("The parser is fast, safe and correct.", "It runs on Linux, Mac and Windows."),
+        "fronted clause": ("Since the tests crash without a display, the run gets one.",
+                           "The run gets a display because the tests crash without one."),
+        "colon setup": ("The result: faster builds.", "Usage: run the script with a path."),
+        "nominalization": ("It performs validation of the input.", "It checks the input."),
+        "formal connective": ("Additionally, it caches the result.", "It also caches the result."),
+        "significance claim": ("Retries play a key role in the client.", "The client retries 3 times."),
+        "announcing intro": ("This section covers the config file.", "The config file is TOML."),
+        "teaching tone": ("Please ensure that the path exists.", "The path doesn't exist."),
+    }
+
+    def test_each_rule_flags_its_tell_and_passes_the_plain_form(self):
+        for rule, (bad, good) in self.CASES.items():
+            with self.subTest(rule=rule):
+                self.assertIn(rule, run("--text", bad)[1])
+                self.assertNotIn(rule, run("--text", good)[1])
+
+    def test_list_of_longer_items_is_not_a_triad(self):
+        self.assertNotIn("triad", run("--text", "a table of severity, location, finding and the input")[1])
+
+    def test_could_not_in_a_quoted_error_is_not_a_hedge(self):
+        self.assertNotIn("hedge stack", run_file('It prints "could not start" when the file may be gone.\n')[1])
+
+    def test_talking_code_is_flagged_in_comments_only(self):
+        with tempfile.TemporaryDirectory() as repo:
+            git(repo, "init", "-q")
+            with open(os.path.join(repo, "a.py"), "w", encoding="utf-8", newline="\n") as file:
+                file.write("# The parser knows the width now.\nx = 1\n")
+            with open(os.path.join(repo, "a.md"), "w", encoding="utf-8", newline="\n") as file:
+                file.write("I know the width now.\n")
+            git(repo, "add", "a.py", "a.md")
+
+            _, out = run("--staged", cwd=repo)
+
+            self.assertIn("a.py:1: check: code that talks or thinks", out)
+            self.assertIn("a.py:1: check: 'now' in a comment", out)
+            self.assertNotIn("a.md:1: check: code that talks", out)
+            self.assertNotIn("a.md:1: check: 'now'", out)
+
+    def test_skill_and_tells_files_get_only_the_hard_rules(self):
+        text = "The build is robust and caches the restore step — every time.\n"
+        for name in ("SKILL.md", "tells.md"):
+            with self.subTest(name=name):
+                code, out = run_file(text, name)
+                self.assertEqual(code, 1)
+                self.assertIn("hard: em or en dash", out)
+                self.assertNotIn("jargon or sales word", out)
+
+
+class Explain(unittest.TestCase):
+    def load(self):
+        spec = importlib.util.spec_from_file_location("prose_check", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_explain_prints_the_row_of_the_rule(self):
+        code, out = run("--explain", "participle tail")
+        self.assertEqual(code, 0)
+        self.assertIn("Level: Sentence", out)
+        self.assertIn("Bad: ", out)
+        self.assertIn("Good: ", out)
+
+    def test_explain_of_an_unknown_rule_fails(self):
+        code, out = run("--explain", "no such rule")
+        self.assertEqual(code, 1)
+        self.assertIn("no such rule", out)
+
+    def test_every_rule_has_a_row_in_tells(self):
+        module = self.load()
+        rules = [rule for rule, _ in module.HARD + module.CHECK + module.MARKDOWN + module.COMMENT_ONLY]
+        rules += ["NUL byte in a text file", "dramatic short sentence", "decision packed into 1 sentence",
+                  "hedge stack", "same skeleton in a row", "closing restatement", "flat sentence length",
+                  "same verb in many sentences"]
+        for rule in rules:
+            with self.subTest(rule=rule):
+                self.assertIsNotNone(module.explain(rule))
 
 
 class ParagraphChecks(unittest.TestCase):
