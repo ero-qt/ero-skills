@@ -309,6 +309,55 @@ class CommitGuard(unittest.TestCase):
 
         self.assert_denied(self.guard(tool="PowerShell"), ".env")
 
+    # A PowerShell here-string ends only at `'@` on its own line, so an apostrophe inside doesn't end it.
+    def test_powershell_here_string_message_is_checked(self):
+        self.stage("parser.py", "x = 1\n")
+
+        dash = self.guard(f"git commit -m @'\nAdd parser that doesn't stop {DASH} now\n'@", tool="PowerShell")
+        trailer = self.guard(f"git commit -m @\"\nAdd parser that doesn't stop\n\n{TRAILER}\n\"@", tool="PowerShell")
+        clean = self.guard("git commit -m @'\nAdd parser that doesn't stop\n'@", tool="PowerShell")
+
+        self.assert_denied(dash, "prose check", "message")
+        self.assert_denied(trailer, "trailer")
+        self.assertIsNone(clean)
+
+    # PowerShell doubles a quote to escape it and keeps backslashes as they are.
+    def test_powershell_quotes_and_paths(self):
+        self.stage(".env", "TOKEN=1\n")
+        elsewhere = self.data
+
+        self.assert_denied(self.guard(f"git commit -m 'It''s fine {DASH} really'", tool="PowerShell"), "message")
+        self.assert_denied(self.guard(f"git -C {self.repo} commit -m 'Add env'", tool="PowerShell", cwd=elsewhere),
+                           ".env")
+
+    # Claude Code writes Bash commit messages as a heredoc inside `$(cat ...)`.
+    def test_cat_heredoc_message_is_checked(self):
+        self.stage("parser.py", "x = 1\n")
+        form = "git commit -m \"$(cat <<'EOF'\n{}\nEOF\n)\""
+
+        self.assertIsNone(self.guard(form.format("Add parser\n\nIt reads 1 line.")))
+        self.assert_denied(self.guard(form.format(f"Add parser {DASH} now")), "prose check", "message")
+        self.assert_denied(self.guard(form.format(f"Add parser\n\n{TRAILER}")), "trailer")
+
+    # A heredoc that writes a file isn't a command, also without a space before `<<`.
+    def test_heredoc_body_is_not_a_command(self):
+        self.stage("parser.py", "x = 1\n")
+
+        for start in ["cat <<'EOF' > run.sh", "cat<<'EOF' > run.sh"]:
+            with self.subTest(start=start):
+                self.assertIsNone(self.guard(f'{start}\ngit commit -m "x {DASH} y"\nEOF'))
+
+    # Subshells, groups, conditions, wrappers and git's own options still lead to the commit.
+    def test_wrapped_commits_are_checked(self):
+        self.stage(".env", "TOKEN=1\n")
+
+        for command in ['(git commit -m "Add env")', '{ git commit -m "Add env"; }',
+                        'if true; then git commit -m "Add env"; fi', 'env GIT_TRACE=0 git commit -m "Add env"',
+                        'GIT_TRACE=0 git commit -m "Add env"', 'command git commit -m "Add env"',
+                        'git --git-dir .git commit -m "Add env"', 'git -c user.name=Test commit -m "Add env"']:
+            with self.subTest(command=command):
+                self.assert_denied(self.guard(command), ".env")
+
     def test_other_tools_pass(self):
         self.stage(".env", "TOKEN=1\n")
 

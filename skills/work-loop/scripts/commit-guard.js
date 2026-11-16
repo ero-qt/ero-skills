@@ -17,9 +17,11 @@ const COMMIT_STAGING_FLAGS = ['all', 'include', 'interactive', 'only', 'patch', 
 const COMMIT_VALUE_FLAGS = ['author', 'cleanup', 'date', 'file', 'fixup', 'message', 'reedit-message',
     'reuse-message', 'squash', 'template', 'trailer'];
 const DEFAULT_KNOBS = { docs: 'repo', loop: 'standard' };
-const GIT_VALUE_OPTIONS = ['-c', '--config-env', '--git-dir', '--namespace', '--work-tree'];
+const GIT_VALUE_OPTIONS = ['-c', '--config-env', '--git-dir', '--namespace'];
 const NEVER_STAGE = ['.env', '.claude/settings.local.json'];
 const LEDGER_SCRIPT = path.join(__dirname, 'ledger.js');
+const PREFIX_WORDS = ['!', '{', 'command', 'do', 'elif', 'else', 'exec', 'if', 'nohup', 'then', 'time', 'until',
+    'while'];
 const PROSE_CHECK = path.join(__dirname, '..', '..', 'repo-writing', 'scripts', 'prose_check.py');
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';
 const STAGING_SUBCOMMANDS = ['add', 'mv', 'rm', 'stage'];
@@ -37,15 +39,20 @@ function git(cwd, ...args) {
     return result.status === 0 ? result.stdout : null;
 }
 
-// Splits a command into words and operators the way a shell does, close enough to find a commit in it.
-// A heredoc body goes to the `heredocs` list of the command it belongs to.
-function parseCommands(text) {
+// Splits a command into words and operators the way Bash or PowerShell does, close enough to find a commit in it.
+// A Bash heredoc body goes to the `heredocs` list of the command it belongs to.
+function parseCommands(text, powershell) {
     const commands = [{ words: [], heredocs: [] }];
+    const escape = powershell ? '`' : '\\';
     let word = null;
     let pendingHeredocs = [];
+    let substitutions = 0;
     let i = 0;
 
     const current = () => commands[commands.length - 1];
+    const append = (value) => {
+        word = (word || '') + value;
+    };
     const endWord = () => {
         if (word !== null) {
             current().words.push(word);
@@ -88,7 +95,19 @@ function parseCommands(text) {
         } else if (char === ';' || char === '|' || char === '&') {
             endCommand();
             i++;
-        } else if (text.startsWith('<<', i) && word === null) {
+        } else if (char === '(' && word !== null && word.endsWith('$')) {
+            append(char);
+            substitutions++;
+            i++;
+        } else if (char === ')' && substitutions > 0) {
+            append(char);
+            substitutions--;
+            i++;
+        } else if (char === '(' || char === ')') {
+            endCommand();
+            i++;
+        } else if (!powershell && text.startsWith('<<', i)) {
+            endWord();
             const match = text.slice(i).match(/^<<-?\s*(['"]?)([\w.-]+)\1/);
             if (match) {
                 pendingHeredocs.push(match[2]);
@@ -96,34 +115,73 @@ function parseCommands(text) {
             } else {
                 i += 2;
             }
+        } else if (powershell && word === null && /^@['"]\r?\n/.test(text.slice(i, i + 4))) {
+            const start = text.indexOf('\n', i) + 1;
+            const close = text.slice(start).match(new RegExp(`(^|\\r?\\n)${text[i + 1]}@`));
+            const end = close ? start + close.index : text.length;
+            append(text.slice(start, end));
+            i = close ? end + close[0].length : text.length;
         } else if (char === "'") {
-            const end = text.indexOf("'", i + 1);
-            const close = end < 0 ? text.length : end;
-            word = (word || '') + text.slice(i + 1, close);
-            i = close + 1;
-        } else if (char === '"') {
-            let value = '';
             i++;
-            while (i < text.length && text[i] !== '"') {
-                if (text[i] === '\\' && i + 1 < text.length && '"\\$`'.includes(text[i + 1])) {
-                    i++;
+            while (i < text.length) {
+                if (text[i] !== "'") {
+                    append(text[i++]);
+                } else if (powershell && text[i + 1] === "'") {
+                    append("'");
+                    i += 2;
+                } else {
+                    break;
                 }
-                value += text[i];
-                i++;
             }
-            word = (word || '') + value;
+            append('');
             i++;
-        } else if (char === '\\' && i + 1 < text.length) {
-            word = (word || '') + text[i + 1];
+        } else if (char === '"') {
+            i++;
+            while (i < text.length) {
+                if (powershell && text.startsWith('""', i)) {
+                    append('"');
+                    i += 2;
+                } else if (text[i] === '"') {
+                    break;
+                } else if (text[i] === escape && i + 1 < text.length && (powershell || '"\\$`'.includes(text[i + 1]))) {
+                    append(text[i + 1]);
+                    i += 2;
+                } else {
+                    append(text[i++]);
+                }
+            }
+            append('');
+            i++;
+        } else if (char === escape && i + 1 < text.length) {
+            if (text[i + 1] !== '\n') {
+                append(text[i + 1]);
+            }
             i += 2;
         } else {
-            word = (word || '') + char;
+            append(char);
             i++;
         }
     }
 
     endWord();
     return commands.filter((command) => command.words.length);
+}
+
+// Drops the words in front of the command itself, like `VAR=1`, `env -i`, `{`, `then` or `while`.
+function commandWords(words) {
+    let index = 0;
+    let afterEnv = false;
+    while (index < words.length) {
+        const item = words[index];
+        if (item === 'env') {
+            afterEnv = true;
+        } else if (!PREFIX_WORDS.includes(item) && !/^\w+=/.test(item) && !(afterEnv && item.startsWith('-'))) {
+            break;
+        }
+        index++;
+    }
+
+    return words.slice(index);
 }
 
 // Returns the folder, subcommand and arguments of a git command. Returns null for any other command.
@@ -136,9 +194,13 @@ function readGitCall(args, dir) {
     let gitDir = dir;
     while (index < args.length && args[index].startsWith('-')) {
         const option = args[index];
-        if (option === '-C' && args[index + 1]) {
+        const workTree = option.match(/^--work-tree=(.+)$/s);
+        if ((option === '-C' || option === '--work-tree') && args[index + 1]) {
             gitDir = path.resolve(gitDir, args[index + 1]);
             index += 2;
+        } else if (workTree) {
+            gitDir = path.resolve(gitDir, workTree[1]);
+            index++;
         } else if (GIT_VALUE_OPTIONS.includes(option)) {
             index += 2;
         } else {
@@ -151,11 +213,11 @@ function readGitCall(args, dir) {
 
 // Returns the first `git commit` in the command. Returns null when it doesn't commit. `staging` lists what stages
 // files in the same command, since the guard reads the index before any of the command runs.
-function findCommit(text, cwd) {
+function findCommit(text, powershell, cwd) {
     let dir = cwd;
     const staging = [];
-    for (const { words, heredocs } of parseCommands(text)) {
-        const args = words.slice(words.findIndex((item) => !/^\w+=/.test(item)));
+    for (const { words, heredocs } of parseCommands(text, powershell)) {
+        const args = commandWords(words);
         if (/^(cd|set-location|pushd)$/i.test(args[0] || '') && args[1]) {
             dir = path.resolve(dir, args[1]);
             continue;
@@ -230,7 +292,7 @@ function readCommitArgs(args, heredocs, dir) {
         }
     }
 
-    return { message: parts.join('\n\n').replace(/^@\r?\n?|\r?\n?@$/g, ''), staging };
+    return { message: parts.join('\n\n'), staging };
 }
 
 function readJson(file) {
@@ -321,7 +383,7 @@ function check(event) {
         return [];
     }
 
-    const commit = findCommit(command, event.cwd || process.cwd());
+    const commit = findCommit(command, event.tool_name === 'PowerShell', event.cwd || process.cwd());
     const ledger = commit && ledgerPath(commit.dir);
     if (!ledger) {
         return [];
