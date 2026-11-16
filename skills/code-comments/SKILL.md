@@ -1,6 +1,6 @@
 ---
 name: code-comments
-description: "Use when writing or changing code that others will read: before adding a comment or doc comment, naming anything, or shaping functions and files. Researches the file's and repo's house style first (editorconfig, linters, neighbor code, comment density), then makes the code document itself through names, types, blank lines and small functions, and comments only what the code can't show, as \"what it does, because why\". Covers doc comment openers, test names and the comment tells the user rejects."
+description: "Use when writing or changing code that others will read: before adding a comment or doc comment, naming anything, writing an error message or log line, or shaping functions and files. Researches the file's and repo's house style first (editorconfig, linters, neighbor code, comment density), then makes the code document itself through names, types, blank lines and small functions, and comments only what the code can't show, as \"what it does, because why\". Covers doc comment openers, test names and the comment tells the user rejects."
 ---
 
 # Code comments and self-documenting code
@@ -23,8 +23,12 @@ Every rule from here on is a default. Where the file or repo does it another way
 
 - Rename instead of commenting. When a comment explains a guard, rename what the guard returns or calls (`CannotSuspendItself()`) and delete the comment.
 - Give the act a name. A side-effect trick that needs a comment (`_ = Configuration;`) becomes a method called after what it does (`ThrowIfNotInitialized()`).
-- Put the why into error message strings so the failure explains itself.
+- Put the why into error message strings so the failure explains itself. A message gives the subject and the reason in a few words, the way the platform's own errors do: "`fmt` requires Python 3.9 or later." Leave out "please", a next step the reader can guess and anything the output already shows.
+- A log line is a label and a value for each fact (`copied: {FileCount} files, package: {PackageId}`), not a sentence. List the items instead of a range and log each event once.
 - Methods and functions get verb names that say what they do (`FindLoaded`, `read_text`), private helpers too. Names describe the exact concept, in the domain's own words (`Transform`, `GWorld`, a clamp is a clamp). No abbreviations (`TypeReference`, not `TypeRef`), no invented versions or tiers (`v2`, `v3`) that don't exist in the real world. Keep established vocabulary and keep names the same across parallel implementations.
+- A parameter, field or variable is named after its role and ends with the role noun of its type: `downloader` for an `ArchiveDownloader` and `symbolLocator` for a `SymbolLocator`, not `archive` or `symbols`. When 2 of a kind sit side by side, the first part tells them apart (`sourceReader`, `targetReader`). A parameter list uses 1 naming scheme.
+- Parameters are grouped by concept, in the order a caller thinks of them. A new parameter joins its group instead of going at the end. Pass the object instead of a value the object already has.
+- Generic code and its tests use neutral names like `item`, `source` or `example.com`, never the name of a product that uses them.
 - No magic numbers. Model layouts as types and derive offsets from them. Call constants by the spec's own names and pass typed values instead of a bare `8`. Raw bytes in test fixture builders are fine.
 - Use types and enums for flags and modes instead of raw integers or strings. Never widen a concrete type to `object`, `dynamic` or `Any` to share a seam.
 - Separate the concerns inside a function with blank lines: the setup, each loop or step, the result. Keep functions small. When one grows past a screen, split it into named pieces in its own refactor commit before adding to it.
