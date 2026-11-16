@@ -439,10 +439,13 @@ class CommitGuard(unittest.TestCase):
 
     # Without the prose check script the other checks still run.
     def test_missing_prose_check_skips_only_the_prose_check(self):
+        skills = os.path.dirname(os.path.dirname(SCRIPTS))
         copy = os.path.join(self.data, "skills", "work-loop", "scripts")
-        os.makedirs(copy)
-        for name in [GUARD, LEDGER]:
-            shutil.copy(name, copy)
+        for skill, name in [("work-loop", "commit-guard.js"), ("work-loop", "ledger.js"), ("work-ethic", "knobs.js"),
+                            ("terse-replies", "terse-reminder.js")]:
+            folder = os.path.join(self.data, "skills", skill, "scripts")
+            os.makedirs(folder, exist_ok=True)
+            shutil.copy(os.path.join(skills, skill, "scripts", name), folder)
         self.stage("notes.md", f"A {DASH} B\n")
         self.stage(".env", "TOKEN=1\n")
         event = {"cwd": self.repo, "tool_name": "Bash", "tool_input": {"command": 'git commit -m "Add notes"'}}

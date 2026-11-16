@@ -5,7 +5,11 @@
 //
 // Usage:
 //     node knobs.js prompt                    UserPromptSubmit hook: saves the knob phrases of the prompt
-//                                             and prints the knobs in 1 line
+//                                             and prints the knobs in 1 line, with the full terse rules
+//                                             after a reply that broke one
+//     node knobs.js session                   SessionStart hook: prints the full terse rules and the knobs.
+//                                             After a compaction or a resume it also prints what to reload,
+//                                             the house brief and the newest ledger record
 //     node knobs.js show [--json]             print the knobs in effect
 //     node knobs.js set <knob> <value> [--user]
 //                                             save a knob for this repo, or for every repo with --user
@@ -14,12 +18,13 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { ledgerPath } = require('../../work-loop/scripts/ledger');
+const { promptReminder, reminder, writeExplainFlag } = require('../../terse-replies/scripts/terse-reminder');
+const { ledgerPath, readRecords } = require('../../work-loop/scripts/ledger');
 
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const MODEL_KNOBS = ['review-model', 'plan-model', 'impl-model'];
 const SESSION_MODEL = 'session model';
-const USAGE = 'Usage: node knobs.js [--data <folder>] [--session <id>] prompt | show [--json] '
+const USAGE = 'Usage: node knobs.js [--data <folder>] [--session <id>] prompt | session | show [--json] '
     + '| set <knob> <value> [--user]';
 
 // The order of this table is the order of the knob line.
@@ -37,6 +42,7 @@ const KNOBS = {
     cleanup: { values: ['ask', 'auto'], default: 'ask' },
 };
 const ALWAYS_SHOWN = ['terse', 'loop', 'autonomy'];
+const RELOAD_ORDER = ['terse-replies', 'repo-writing', 'code-comments', 'work-loop'];
 
 function defaults() {
     return Object.fromEntries(Object.entries(KNOBS).map(([name, knob]) => [name, knob.default]));
@@ -179,23 +185,65 @@ function dataDirOf(options) {
     return options.data || process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
 }
 
-function runPrompt(options, input) {
-    let event = {};
+function readEvent(input) {
     try {
-        event = JSON.parse(input);
+        const event = JSON.parse(input);
+        return event && typeof event === 'object' ? event : {};
     } catch {
-        // A broken event still gets the knob line.
+        return {};
     }
+}
 
-    const context = { dataDir: dataDirOf(options), cwd: event.cwd || process.cwd(), session: event.session_id };
+function print(eventName, lines) {
+    const output = { hookEventName: eventName, additionalContext: lines.filter(Boolean).join('\n') };
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: output }));
+}
+
+function runPrompt(context, event) {
+    const prompt = typeof event.prompt === 'string' ? event.prompt : '';
+    let slipped = '';
     try {
-        saveKnobs(findChanges(typeof event.prompt === 'string' ? event.prompt : ''), context);
+        saveKnobs(findChanges(prompt), context);
+        writeExplainFlag(context.dataDir, prompt);
+        slipped = promptReminder(context.dataDir, readKnobs(context).terse);
     } catch {
         // An unwritable file never fails the prompt.
     }
 
-    const output = { hookEventName: 'UserPromptSubmit', additionalContext: knobLine(readKnobs(context)) };
-    process.stdout.write(JSON.stringify({ hookSpecificOutput: output }));
+    print('UserPromptSubmit', [knobLine(readKnobs(context)), slipped]);
+}
+
+function resumeLines(cwd) {
+    const repo = repoFile(cwd);
+    const house = repo && path.join(path.dirname(repo), 'house.md');
+    const last = repo ? readRecords(cwd).at(-1) : null;
+    return [
+        house && fs.existsSync(house) ? `house brief: read ${house} before the next action` : '',
+        last ? `ledger: ${last.stage}: ${last.proof}` : '',
+    ];
+}
+
+function runSession(context, event) {
+    const knobs = readKnobs(context);
+    const lines = [reminder(knobs.terse), knobLine(knobs)];
+    if (event.source === 'compact') {
+        lines.push(`reload: ${RELOAD_ORDER.join(', ')}`);
+    }
+    if (event.source === 'compact' || event.source === 'resume') {
+        lines.push(...resumeLines(context.cwd));
+    }
+
+    print('SessionStart', lines);
+}
+
+function runHook(mode, options, input) {
+    const event = readEvent(input);
+    const context = { dataDir: dataDirOf(options), cwd: event.cwd || process.cwd(), session: event.session_id };
+    if (mode === 'prompt') {
+        runPrompt(context, event);
+    } else {
+        runSession(context, event);
+    }
 }
 
 function main(argv) {
@@ -238,10 +286,10 @@ module.exports = { findChanges, knobLine, readKnobs, saveKnobs };
 
 if (require.main === module) {
     const options = readArgs(process.argv.slice(2));
-    if (options.words.length === 1 && options.words[0] === 'prompt') {
+    if (options.words.length === 1 && ['prompt', 'session'].includes(options.words[0])) {
         let input = '';
         process.stdin.on('data', (chunk) => { input += chunk; });
-        process.stdin.on('end', () => runPrompt(options, input));
+        process.stdin.on('end', () => runHook(options.words[0], options, input));
     } else {
         process.exitCode = main(process.argv.slice(2));
     }

@@ -46,39 +46,6 @@
       "outputStyles": "./skills/terse-replies/output-styles/terse.md",
       "experimental": {
         "evals": "evals/terse-replies"
-      },
-      "hooks": {
-        "UserPromptSubmit": [
-          {
-            "hooks": [
-              {
-                "type": "command",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/terse-hook.js\" prompt"
-              }
-            ]
-          }
-        ],
-        "SessionStart": [
-          {
-            "matcher": "startup|resume|clear|compact",
-            "hooks": [
-              {
-                "type": "command",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/terse-hook.js\" session"
-              }
-            ]
-          }
-        ],
-        "Stop": [
-          {
-            "hooks": [
-              {
-                "type": "command",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/reply-check.js\""
-              }
-            ]
-          }
-        ]
       }
     },
     {
@@ -104,30 +71,6 @@
       ],
       "experimental": {
         "evals": "evals/work-loop"
-      },
-      "hooks": {
-        "PreToolUse": [
-          {
-            "matcher": "Bash",
-            "hooks": [
-              {
-                "type": "command",
-                "if": "Bash(git *)",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-loop/scripts/commit-guard.js\""
-              }
-            ]
-          },
-          {
-            "matcher": "PowerShell",
-            "hooks": [
-              {
-                "type": "command",
-                "if": "PowerShell(git *)",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-loop/scripts/commit-guard.js\""
-              }
-            ]
-          }
-        ]
       }
     },
     {
@@ -155,6 +98,49 @@
               {
                 "type": "command",
                 "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-ethic/scripts/knobs.js\" prompt"
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "matcher": "startup|resume|clear|compact",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-ethic/scripts/knobs.js\" session"
+              }
+            ]
+          }
+        ],
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/reply-check.js\""
+              }
+            ]
+          }
+        ],
+        "PreToolUse": [
+          {
+            "matcher": "Bash",
+            "hooks": [
+              {
+                "type": "command",
+                "if": "Bash(git *)",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-loop/scripts/commit-guard.js\""
+              }
+            ]
+          },
+          {
+            "matcher": "PowerShell",
+            "hooks": [
+              {
+                "type": "command",
+                "if": "PowerShell(git *)",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-loop/scripts/commit-guard.js\""
               }
             ]
           }

@@ -5,8 +5,8 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { readKnobs } = require('../../work-ethic/scripts/knobs');
 
-const DEFAULT_LEVEL = 'full';
 const CHECKED_LEVELS = ['full', 'ultra'];
 const MAX_GATE_LINES = 12;
 const MAX_BULLETS = 5;
@@ -180,7 +180,7 @@ function soft(rule, detail) {
 }
 
 function check(event) {
-    const level = readFile('terse-level') || DEFAULT_LEVEL;
+    const level = readKnobs({ dataDir, cwd: event.cwd || process.cwd() }).terse;
     const message = event.last_assistant_message;
     if (!CHECKED_LEVELS.includes(level) || typeof message !== 'string' || !message.trim()) {
         return [];
@@ -214,7 +214,7 @@ function log(findings) {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.appendFileSync(path.join(dataDir, 'slips.jsonl'), lines.join(''));
 
-    // terse-hook.js prints the full reminder with these lines at the next prompt.
+    // terse-reminder.js adds these lines to the full reminder at the next prompt.
     const broken = findings.filter((finding) => finding.kind === 'hard').map((finding) => finding.detail);
     if (broken.length) {
         fs.writeFileSync(path.join(dataDir, 'terse-slipped'), broken.join('\n'));

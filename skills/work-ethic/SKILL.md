@@ -5,7 +5,7 @@ description: "Use when the user changes or asks about a knob (the loop level, au
 
 # Work ethic
 
-This skill ties together repo-writing, code-comments, terse-replies and work-loop. It keeps the knobs.
+This skill ties together repo-writing, code-comments, terse-replies and work-loop. Its plugin runs the hooks of all 4, keeps the knobs and counts how often a rule gets broken.
 
 Paths like `<skills>/work-loop/...` start at the folder above this skill's base directory.
 
@@ -27,6 +27,15 @@ Load the skills again in this order: terse-replies, repo-writing, code-comments,
 ## Subagents
 
 A subagent starts without the skills or the chat. When it writes code or repo text, put the path of the house brief in its prompt and tell it that repo text follows `<skills>/repo-writing/references/tells.md`. The work-loop stage agents already load repo-writing and code-comments.
+
+## Hooks
+
+The plugin's hooks run for the whole session, whether this skill is loaded or not.
+
+- At every prompt, `scripts/knobs.js` saves the knob phrases and shows the knobs in 1 line. After a reply that broke a terse rule, it adds the full terse rules once.
+- At the start of a session it shows the terse rules and the knobs. After a compaction it also lists the skills to load again. After a compaction or a resume it gives the house brief and the newest ledger record.
+- At the end of each turn, `reply-check.js` of terse-replies writes down the reply rules it finds broken. It never stops the turn.
+- Before a `git commit`, `commit-guard.js` of work-loop stops a commit with a trailer, a hard prose finding or a path that must never be staged. It warns when source changed without a doc change.
 
 ## Knobs
 
@@ -60,3 +69,13 @@ node "${CLAUDE_SKILL_DIR}/scripts/knobs.js" --data "${CLAUDE_PLUGIN_DATA}" --ses
 
 `set` doesn't change `autonomy`, because only the user's own words turn auto mode on.
 
+
+## Slips
+
+The hooks write every rule they find broken to `${CLAUDE_PLUGIN_DATA}/slips.jsonl`. When the user asks how often the rules get broken, run this and show its lines as they are:
+
+```bash
+node "${CLAUDE_SKILL_DIR}/scripts/status.js" --data "${CLAUDE_PLUGIN_DATA}" --days 7
+```
+
+A rule that keeps coming back after its text changed needs a check in a script, not more text.

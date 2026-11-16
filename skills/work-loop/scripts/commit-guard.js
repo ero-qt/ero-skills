@@ -12,13 +12,13 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { readKnobs } = require('../../work-ethic/scripts/knobs');
 const { currentRecords, ledgerPath } = require('./ledger');
 
 const CHECKED_TOOLS = ['Bash', 'PowerShell'];
 const COMMIT_STAGING_FLAGS = ['all', 'include', 'interactive', 'only', 'patch', 'pathspec-from-file'];
 const COMMIT_VALUE_FLAGS = ['author', 'cleanup', 'date', 'file', 'fixup', 'message', 'reedit-message',
     'reuse-message', 'squash', 'template', 'trailer'];
-const DEFAULT_KNOBS = { docs: 'repo', loop: 'standard' };
 const GIT_VALUE_OPTIONS = ['-c', '--config-env', '--git-dir', '--namespace'];
 const NEVER_STAGE = ['.env', '.claude/settings.local.json'];
 const LEDGER_SCRIPT = path.join(__dirname, 'ledger.js');
@@ -306,23 +306,6 @@ function readCommitArgs(args, heredocs, dir) {
     return { message: parts.join('\n\n'), hasMessage, signoff, staging };
 }
 
-function readJson(file) {
-    try {
-        return JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch {
-        return {};
-    }
-}
-
-// The repo's knobs win over the user's defaults.
-function readKnobs(workLoopDir) {
-    return {
-        ...DEFAULT_KNOBS,
-        ...readJson(path.join(dataDir, 'knobs.json')),
-        ...readJson(path.join(workLoopDir, 'knobs.json')),
-    };
-}
-
 function globToRegex(glob) {
     return glob.split(/(\*\*|\*|\?)/).map((part) => {
         if (part === '**') {
@@ -441,7 +424,7 @@ function check(event) {
         findings.push(hard('never-stage', name));
     }
 
-    const knobs = readKnobs(workLoopDir);
+    const knobs = readKnobs({ dataDir, cwd: dir });
     const source = staged.filter((name) => !DOC.test(name) && !CHANGELOG.test(path.posix.basename(name))
         && !TEST.test(name) && !CI.test(name) && !NO_DOCS.test(name));
     const docStaged = staged.some((name) => DOC.test(name) || CHANGELOG.test(path.posix.basename(name)));

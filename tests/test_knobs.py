@@ -8,7 +8,11 @@ import tempfile
 import unittest
 
 SCRIPT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "skills", "work-ethic", "scripts", "knobs.js"))
+CHECK = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", "..", "terse-replies", "scripts", "reply-check.js"))
+LEDGER = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", "..", "work-loop", "scripts", "ledger.js"))
+MARKETPLACE = os.path.join(os.path.dirname(__file__), "..", ".claude-plugin", "marketplace.json")
 NODE = shutil.which("node") or "node"
+LONG_GATE = "\n".join([f"`file{index}.py`: change {index}" for index in range(17)] + ["`Add retry limit`", "Approve?"])
 
 # Keeps the tests away from the machine's git config.
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
@@ -34,7 +38,7 @@ PHRASES = [
 
 
 @unittest.skipIf(shutil.which("node") is None, "node is not installed")
-class Knobs(unittest.TestCase):
+class KnobsCase(unittest.TestCase):
     def setUp(self):
         self.repo = tempfile.mkdtemp()
         self.data = tempfile.mkdtemp()
@@ -79,6 +83,9 @@ class Knobs(unittest.TestCase):
         with open(path, "w", encoding="utf-8") as file:
             json.dump(value, file)
 
+
+
+class Knobs(KnobsCase):
     def test_line_at_defaults_is_short(self):
         line = self.prompt("fix the build")
 
@@ -183,6 +190,93 @@ class Knobs(unittest.TestCase):
         self.assertEqual(self.show(), "knobs: terse full, loop standard, gated")
         result = self.run_script("prompt", stdin="not json")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+
+# The prompt and session hooks also bring back the terse-replies rules.
+class TerseReminder(KnobsCase):
+    def session(self, source="startup"):
+        event = {"hook_event_name": "SessionStart", "session_id": "one", "cwd": self.repo, "source": source}
+        result = self.run_script("session", stdin=json.dumps(event))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)["hookSpecificOutput"]
+        self.assertEqual(output["hookEventName"], "SessionStart")
+        return output["additionalContext"]
+
+    def end_turn(self, message):
+        event = {"hook_event_name": "Stop", "stop_hook_active": False, "last_assistant_message": message,
+                 "cwd": self.repo}
+        subprocess.run([NODE, CHECK], input=json.dumps(event), capture_output=True, encoding="utf-8", env=self.env,
+                       cwd=self.repo, check=True)
+
+    def test_prompt_line_leaves_out_the_full_rules(self):
+        self.assertNotIn("caveman", self.prompt("fix the build"))
+
+    # After a reply with a hard finding, the next prompt gets the full rules with the broken rule, then 1 line again.
+    def test_hard_finding_brings_back_the_full_reminder_once(self):
+        self.end_turn(LONG_GATE)
+        full = self.prompt("next task")
+        short = self.prompt("next task")
+
+        self.assertIn("caveman: fragments, no articles, no filler.", full)
+        self.assertIn("gate is 19 lines, max 12", full)
+        self.assertLess(len(short), 80)
+
+    def test_soft_finding_keeps_the_short_line(self):
+        self.end_turn("6 files.\n" + "\n".join(f"- `f{index}.py`" for index in range(6)))
+
+        self.assertLess(len(self.prompt("next task")), 80)
+
+    def test_session_start_gives_the_full_rules_of_the_level_and_the_knobs(self):
+        self.prompt("terse ultra")
+        text = self.session()
+
+        self.assertIn("TERSE ULTRA", text)
+        self.assertIn("`path:l:c`", text)
+        self.assertIn("knobs: terse ultra, loop standard, gated", text)
+        self.assertNotIn("reload", text)
+
+    def test_session_start_with_terse_off_only_gives_the_knobs(self):
+        self.prompt("normal replies")
+
+        self.assertEqual(self.session(), "knobs: terse off, loop standard, gated")
+
+    # After a compaction the skills come back in order, then the house brief and the last ledger record.
+    def test_compaction_names_the_reload_order_house_brief_and_last_record(self):
+        os.makedirs(os.path.join(self.repo, ".git", "work-loop"), exist_ok=True)
+        with open(os.path.join(self.repo, ".git", "work-loop", "house.md"), "w", encoding="utf-8") as file:
+            file.write("- Tabs.\n")
+        subprocess.run([NODE, LEDGER, "add", "red", "parser test fails"], cwd=self.repo, env=self.env, check=True,
+                       capture_output=True)
+        text = self.session("compact")
+
+        self.assertIn("reload: terse-replies, repo-writing, code-comments, work-loop", text)
+        self.assertIn("house.md", text)
+        self.assertIn("red: parser test fails", text)
+
+    def test_compaction_without_house_brief_or_ledger_only_names_the_reload_order(self):
+        text = self.session("compact")
+
+        self.assertIn("reload: terse-replies, repo-writing, code-comments, work-loop", text)
+        self.assertNotIn("house", text)
+        self.assertNotIn("ledger", text)
+
+
+class PluginHooks(unittest.TestCase):
+    def test_only_work_ethic_has_hooks_and_every_script_exists(self):
+        with open(MARKETPLACE, encoding="utf-8") as file:
+            plugins = {plugin["name"]: plugin for plugin in json.load(file)["plugins"]}
+        root = os.path.dirname(os.path.dirname(MARKETPLACE))
+
+        self.assertEqual([name for name, plugin in plugins.items() if "hooks" in plugin], ["work-ethic"])
+        hooks = plugins["work-ethic"]["hooks"]
+        self.assertEqual(sorted(hooks), ["PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"])
+        for event, groups in hooks.items():
+            for group in groups:
+                for hook in group["hooks"]:
+                    script = hook["command"].split('"')[1].replace("${CLAUDE_PLUGIN_ROOT}", root)
+                    with self.subTest(event=event, script=script):
+                        self.assertTrue(os.path.exists(script))
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import unittest
 
 SCRIPTS = os.path.join(os.path.dirname(__file__), "..", "skills", "terse-replies", "scripts")
 CHECK = os.path.join(SCRIPTS, "reply-check.js")
-HOOK = os.path.join(SCRIPTS, "terse-hook.js")
+KNOBS = os.path.abspath(os.path.join(SCRIPTS, "..", "..", "work-ethic", "scripts", "knobs.js"))
 NODE = shutil.which("node") or "node"
 
 GATE_OK = "\n".join([
@@ -41,19 +41,21 @@ class ReplyCheck(unittest.TestCase):
         shutil.rmtree(self.data, ignore_errors=True)
 
     def set_level(self, level):
-        with open(os.path.join(self.data, "terse-level"), "w", encoding="utf-8") as file:
-            file.write(level)
+        with open(os.path.join(self.data, "knobs.json"), "w", encoding="utf-8") as file:
+            json.dump({"terse": level}, file)
 
     def prompt(self, text):
-        subprocess.run([NODE, HOOK, "prompt"], input=json.dumps({"prompt": text}), capture_output=True,
-                       encoding="utf-8", env=self.env, check=True)
+        event = {"prompt": text, "cwd": self.data}
+        subprocess.run([NODE, KNOBS, "prompt"], input=json.dumps(event), capture_output=True, encoding="utf-8",
+                       env=self.env, cwd=self.data, check=True)
 
     def check(self, message, stop_hook_active=False, transcript_path=None, raw=None):
-        event = {"hook_event_name": "Stop", "stop_hook_active": stop_hook_active, "last_assistant_message": message}
+        event = {"hook_event_name": "Stop", "stop_hook_active": stop_hook_active, "last_assistant_message": message,
+                 "cwd": self.data}
         if transcript_path:
             event["transcript_path"] = transcript_path
         result = subprocess.run([NODE, CHECK], input=raw if raw is not None else json.dumps(event),
-                                capture_output=True, encoding="utf-8", env=self.env)
+                                capture_output=True, encoding="utf-8", env=self.env, cwd=self.data)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "", "the check only logs and never answers the hook")
         return self.slips()
@@ -159,8 +161,8 @@ class ReplyCheck(unittest.TestCase):
                 self.assertEqual(self.check(gate_of(19) + "\nSorry — let me know."), [])
 
     # The check uses the default level, full, when no level is saved.
-    def test_missing_level_file_checks_at_full(self):
-        os.remove(os.path.join(self.data, "terse-level"))
+    def test_missing_knobs_file_checks_at_full(self):
+        os.remove(os.path.join(self.data, "knobs.json"))
 
         self.assertEqual(self.rules(self.check("A — B.")), ["dash"])
 
