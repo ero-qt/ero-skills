@@ -22,14 +22,12 @@ Run 3 tests before you show the text:
 
 ## What a tell is
 
-A tell is a habit of generated text that shows up more often than a person would write it. One flagged word proves nothing. A text full of them reads as written by a model, even when every fact in it is right.
-
-These 2 rules come before the tables:
+A tell is a habit of generated text that shows up more often than a person would write it. One flagged word doesn't prove anything. A text full of them reads as written by a model, even when every fact in it is right.
 
 - Fix the sentence, not the word. Swapping a flagged word for its neighbor only moves the tell. Banning words one by one makes the text worse. Say the sentence out loud and write the one you'd say.
 - `prose_check.py` counts and points. A person reads the text and decides. A clean check doesn't mean the text is good.
 
-Tells change with each model generation, so the word lists stay short. Most of the weight sits on the shape of sentences, the rhythm of a paragraph and the stance of the writer.
+Tells change with each model generation, so the word lists stay short and most rows are about how a sentence or paragraph is built.
 
 The Check column lists the rules of `scripts/prose_check.py` that flag a row. `prose_check.py --explain "<rule>"` prints the row for a rule. "reader" means only a person catches it.
 
@@ -43,7 +41,7 @@ The Check column lists the rules of `scripts/prose_check.py` that flag a row. `p
 | Code that talks or thinks | Code reads, returns, checks, finds and throws. It doesn't know, want or say anything. | "the parser knows the width", "stops and says so", "the header tells it the size" | "the parser reads the width from the header", "stops and prints an error", "reads the size from the header" | `code that talks or thinks`, `'says' for code or output` |
 | Verbs picked for sound | Each one is a near-synonym of a plain verb. | "every match must name one file", "what a build holds", "releases carried the manifest", "lands on the default settings" | "point at the same file", "what a build contains", "releases came with the manifest", "uses the default settings" | `'name' as a verb`, `'hold' or 'held'`, `'carry'`, `'lands'` |
 | Metaphor nouns | The concrete thing is missing. | "owns the seam", "the root", "a hole in the scan", "stands on the loader" | "the plugin list and the symbol table", the real name | `'told by' or 'stands on'` |
-| Same verb in every sentence | Any verb repeated in sentence after sentence reads as generated, "has" most often. It isn't a banned word. | "This repo has 3 packages. `core` has the parser. `cli` has the command line." | the verb you'd say for each sentence: "This repo contains 3 packages. `core` is the parser and `cli` has the command line." | `same verb in many sentences` |
+| Same verb in every sentence | A verb that repeats in sentence after sentence reads as generated. It's most often "has", but "has" is still fine where you'd say it. | "This repo has 3 packages. `core` has the parser. `cli` has the command line." | the verb you'd say for each sentence: "This repo contains 3 packages. `core` is the parser and `cli` has the command line." | `same verb in many sentences` |
 | Spelling and case | Numbers, names and spelling that a person in the field writes another way. | "thirty two bit", "favour", "json", "linux" | "32-bit", "favor", "JSON", "Linux" | `spelled-out number`, `British spelling` |
 | "here" for the user's machine | The reader isn't on your machine. | "it works here", "on this machine" | "it works on my machine", "I'm on Windows" | `'here' for the user's machine` |
 
@@ -114,11 +112,3 @@ The Check column lists the rules of `scripts/prose_check.py` that flag a row. `p
 | "Added Windows paths. Same two files, backslashes." | "I ended up adding proper Windows paths instead of skipping those tests. They check the same two files, just with backslashes." |
 | "Added a test." | "...and added a test for a config without `defaults`." |
 | "You're right, the claim was wrong." | "Whoops, I had that backwards." |
-
-## A decision packed into 1 sentence
-
-Rejected: "Failed lookups now build their message only when something reads it, because a failed lookup is normal on a hot path and loading a resource made it slower."
-
-Written instead: "Lookups that fail don't build their message unless you ask for it. Just moving the strings into a resource file made failed lookups twice as slow and callers fail a lot of lookups."
-
-The rejected one uses vague placeholders ("something", "a hot path") and a general truth where the concrete fact and its number belong. Say what changed, then what you saw.

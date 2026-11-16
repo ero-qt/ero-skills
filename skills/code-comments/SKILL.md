@@ -60,7 +60,6 @@ After drafting a file, delete every comment whose absence loses nothing.
 - A situational reason goes in parentheses after the fact: "Only a Windows host runs the .NET Framework tests (the CI runner is Linux-only)."
 - Present tense only. Never what was removed, what used to happen, what was tried, what the code deliberately doesn't do, or the plan for later. History belongs in git.
 - Never mention people, the chat, reviews, planning notes, other repos or other libraries. The one exception is attribution of taken or adapted code: a link back (inspired by, taken from) and the license, with a whole copied file keeping the origin's license header at the top.
-- Write the comment the way you'd say it to someone who works on the same code. Use the verb you'd say out loud and the real value instead of a category like "a hot path". Read the comment aloud and rewrite any sentence you wouldn't say.
 - The tells from repo-writing apply here too, from single words ("name" as a verb, "says", "hold", "lands", "carry", em dashes) up to sentence shapes like ", ensuring ..." tails. See "How natural text reads" at the top of `<skills>/repo-writing/references/tells.md` and the tables below it.
 
 ## 5. Doc comments
