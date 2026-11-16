@@ -75,6 +75,12 @@ function format(record) {
     return `${record.stage}: ${record.proof}`;
 }
 
+// Returns the newest record with the commit it belongs to, or null when the ledger is empty.
+function lastLine(cwd) {
+    const last = readRecords(cwd).at(-1);
+    return last ? `${last.head.slice(0, 7) || 'unborn'} ${format(last)}` : null;
+}
+
 function main(args) {
     const [command, stage, ...proofWords] = args;
     const proof = proofWords.join(' ').trim();
@@ -95,16 +101,16 @@ function main(args) {
     } else if (command === 'show') {
         currentRecords(cwd).forEach((record) => console.log(format(record)));
     } else {
-        const last = readRecords(cwd).at(-1);
+        const last = lastLine(cwd);
         if (last) {
-            console.log(`${last.head.slice(0, 7) || 'unborn'} ${format(last)}`);
+            console.log(last);
         }
     }
 
     return 0;
 }
 
-module.exports = { addRecord, currentRecords, ledgerPath, readRecords };
+module.exports = { addRecord, currentRecords, lastLine, ledgerPath, readRecords };
 
 if (require.main === module) {
     process.exitCode = main(process.argv.slice(2));

@@ -21,7 +21,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { promptReminder, reminder, writeExplainFlag } = require('../../terse-replies/scripts/terse-reminder');
-const { ledgerPath, readRecords } = require('../../work-loop/scripts/ledger');
+const { lastLine, ledgerPath } = require('../../work-loop/scripts/ledger');
 
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const MODEL_KNOBS = ['review-model', 'plan-model', 'impl-model'];
@@ -216,10 +216,10 @@ function runPrompt(context, event) {
 function resumeLines(cwd) {
     const repo = repoFile(cwd);
     const house = repo && path.join(path.dirname(repo), 'house.md');
-    const last = repo ? readRecords(cwd).at(-1) : null;
+    const last = repo && lastLine(cwd);
     return [
         house && fs.existsSync(house) ? `house brief: read ${house} before the next action` : '',
-        last ? `ledger: ${last.stage}: ${last.proof}` : '',
+        last ? `ledger: ${last}` : '',
     ];
 }
 

@@ -274,6 +274,15 @@ class TerseReminder(KnobsCase):
         self.assertIn("house.md", text)
         self.assertIn("red: parser test fails", text)
 
+    # The record may be from a commit finished long ago, so the line starts with the commit it belongs to.
+    def test_compaction_names_the_commit_of_the_last_record(self):
+        subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false",
+                        "commit", "-q", "--allow-empty", "-m", "Start"], cwd=self.repo, env=self.env, check=True)
+        subprocess.run([NODE, LEDGER, "add", "red", "parser test fails"], cwd=self.repo, env=self.env, check=True,
+                       capture_output=True)
+
+        self.assertRegex(self.session("compact"), r"(?m)^ledger: [0-9a-f]{7} red: parser test fails$")
+
     def test_compaction_without_house_brief_or_ledger_only_names_the_reload_order(self):
         text = self.session("compact")
 
