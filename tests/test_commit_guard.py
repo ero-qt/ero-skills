@@ -55,6 +55,10 @@ class CommitGuard(unittest.TestCase):
         self.write(name, text)
         self.git("add", name)
 
+    def ledger(self, stage, proof):
+        subprocess.run([NODE, LEDGER, "add", stage, proof], cwd=self.repo, env=self.env, check=True,
+                       capture_output=True)
+
     def set_knobs(self, **knobs):
         folder = os.path.join(self.repo, ".git", "work-loop")
         os.makedirs(folder, exist_ok=True)
@@ -145,6 +149,26 @@ class CommitGuard(unittest.TestCase):
         self.stage("notes.md", f"The parser stops {DASH} it reads 1 line.\n")
 
         self.assert_denied(self.guard(), "prose check", "notes.md")
+
+    # Text that belongs to someone else, like a license or a house style with dashes, can stay with a ledger reason.
+    def test_ledger_reason_keeps_staged_prose(self):
+        self.stage("LICENSE.txt", "Copyright 2019–2024 “The Authors”\n")
+
+        self.assert_denied(self.guard(), "prose check", 'add prose "keep:')
+        self.ledger("prose", "keep: license text")
+        output = self.guard()
+
+        self.assertIsNotNone(output)
+        self.assertNotIn("permissionDecision", output)
+        self.assertIn("LICENSE.txt", output["additionalContext"])
+        self.assertIn(("prose check", "soft"), [(slip["rule"], slip["kind"]) for slip in self.slips()])
+
+    # The reason keeps text in staged files only. The commit message is always new text.
+    def test_ledger_reason_doesnt_keep_the_message(self):
+        self.stage("parser.py", "x = 1\n")
+        self.ledger("prose", "keep: license text")
+
+        self.assert_denied(self.guard(f'git commit -m "Add parser {DASH} now"'), "message")
 
     # A check finding only needs a look, so it doesn't deny.
     def test_check_prose_finding_passes(self):

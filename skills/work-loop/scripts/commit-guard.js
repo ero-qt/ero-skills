@@ -1,9 +1,11 @@
 // Runs on PreToolUse before Bash or PowerShell runs a `git commit` and denies the commit when:
+// - the same command stages files, since the checks read the index before the command runs,
 // - the message has a trailer,
 // - the prose check finds a hard rule broken in the staged lines or the message,
 // - a staged path is one that must never be staged,
 // - at loop strict, source changed without a doc change and the ledger doesn't have a reason for that.
-// Below strict the docs finding only warns Claude. Every finding goes to slips.jsonl in the plugin data folder.
+// Below strict the docs finding only warns Claude. Prose findings in staged text that the ledger keeps also warn.
+// Every finding goes to slips.jsonl in the plugin data folder.
 // A clean commit gets no output and goes through the normal permission prompt.
 
 const { spawnSync } = require('child_process');
@@ -363,7 +365,8 @@ function proseCheck(dir, args, where) {
         return [];
     }
 
-    const result = spawnSync(PYTHON, [PROSE_CHECK, ...args], { cwd: dir, encoding: 'utf8', timeout: 30000 });
+    const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+    const result = spawnSync(PYTHON, [PROSE_CHECK, ...args], { cwd: dir, encoding: 'utf8', env, timeout: 30000 });
     if (result.error || typeof result.stdout !== 'string') {
         return [];
     }
@@ -373,8 +376,10 @@ function proseCheck(dir, args, where) {
         .map((line) => (where ? line.replace(/^<text>/, where) : line));
 }
 
-function hasDocsReason(dir) {
-    return currentRecords(dir).some((record) => record.stage === 'docs' && /^none:\s*\S/.test(record.proof));
+// True when the ledger has a record like `docs: none: <reason>` for the commit in progress.
+function hasLedgerReason(dir, stage, label) {
+    const proof = new RegExp(`^${label}:\\s*\\S`);
+    return currentRecords(dir).some((record) => record.stage === stage && proof.test(record.proof));
 }
 
 function docsOn(knobs, dir) {
@@ -413,10 +418,17 @@ function check(event) {
         findings.push(hard('trailer', 'the commit message has a Co-Authored-By, Signed-off-by or generated-with line'));
     }
 
+    // A ledger reason keeps someone else's text in staged files, like a license. The message is always new text.
+    const keep = hasLedgerReason(dir, 'prose', 'keep');
+    const stagedProse = proseCheck(dir, ['--staged']);
+    const hint = keep ? undefined : 'When the staged text belongs to someone else and has to stay, record why: '
+        + `node "${LEDGER_SCRIPT}" add prose "keep: <reason>"`;
+    for (const line of stagedProse) {
+        findings.push({ rule: 'prose check', kind: keep ? 'soft' : 'hard', detail: line, hint });
+    }
+
     const messageProse = message.trim() ? proseCheck(dir, ['--text', message], 'message') : [];
-    const prose = proseCheck(dir, ['--staged'])
-        .concat(trailer ? messageProse.filter((line) => !/: hard: trailer:/.test(line)) : messageProse);
-    for (const line of prose) {
+    for (const line of trailer ? messageProse.filter((item) => !/: hard: trailer:/.test(item)) : messageProse) {
         findings.push(hard('prose check', line));
     }
 
@@ -430,7 +442,7 @@ function check(event) {
     const source = staged.filter((name) => !DOC.test(name) && !CHANGELOG.test(path.posix.basename(name))
         && !TEST.test(name) && !CI.test(name));
     const docStaged = staged.some((name) => DOC.test(name) || CHANGELOG.test(path.posix.basename(name)));
-    if (source.length && !docStaged && docsOn(knobs, dir) && !hasDocsReason(dir)) {
+    if (source.length && !docStaged && docsOn(knobs, dir) && !hasLedgerReason(dir, 'docs', 'none')) {
         const detail = 'source changed and no doc is staged. Stage the changelog, readme or agents file change, '
             + `or record why none is needed: node "${LEDGER_SCRIPT}" add docs "none: <reason>"`;
         findings.push({ rule: 'docs', kind: knobs.loop === 'strict' ? 'hard' : 'soft', detail });
@@ -448,7 +460,8 @@ function log(findings) {
         const time = new Date().toISOString();
         fs.mkdirSync(dataDir, { recursive: true });
         fs.appendFileSync(path.join(dataDir, 'slips.jsonl'),
-            findings.map((finding) => JSON.stringify({ time, check: 'commit', ...finding }) + '\n').join(''));
+            findings.map(({ rule, kind, detail }) => JSON.stringify({ time, check: 'commit', rule, kind, detail }) + '\n')
+                .join(''));
     } catch {
         // An unwritable log never blocks the commit decision.
     }
@@ -460,7 +473,8 @@ function respond(findings) {
     }
 
     log(findings);
-    const lines = findings.map((finding) => `- ${finding.rule}: ${finding.detail}`);
+    const hints = new Set(findings.map((finding) => finding.hint).filter(Boolean));
+    const lines = findings.map((finding) => `- ${finding.rule}: ${finding.detail}`).concat([...hints]);
     const output = { hookEventName: 'PreToolUse' };
     if (findings.some((finding) => finding.kind === 'hard')) {
         output.permissionDecision = 'deny';
