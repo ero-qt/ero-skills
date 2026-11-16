@@ -94,13 +94,6 @@ function findChanges(prompt) {
             continue;
         }
 
-        const first = words[0].toLowerCase();
-
-        const model = first.match(/^(review|plan|impl)(-model)?$/);
-        if (model && !model[2] && words[1].toLowerCase() === 'model') {
-            words.splice(0, 2, `${model[1]}-model`);
-        }
-
         const name = words[0].toLowerCase();
         const value = name !== 'terse' && validValue(name, words.slice(1));
         if (value) {

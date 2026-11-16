@@ -32,7 +32,7 @@ PHRASES = [
     ("worktrees parallel", "worktrees", "parallel"),
     ("cleanup auto", "cleanup", "auto"),
     ("review-model opus low", "review-model", "opus low"),
-    ("plan model haiku", "plan-model", "haiku"),
+    ("plan-model haiku", "plan-model", "haiku"),
     ("impl-model sonnet high", "impl-model", "sonnet high"),
 ]
 
@@ -108,6 +108,13 @@ class Knobs(KnobsCase):
         self.prompt("update the docs on the site and keep the loop strict for now")
 
         self.assertEqual(self.show(), "knobs: terse full, loop standard, gated")
+
+    # A model knob takes any model name, so only the hyphenated knob name counts.
+    def test_model_knob_without_the_hyphen_changes_nothing(self):
+        for text in ("Review model code", "plan model changes", "Plan model migration."):
+            with self.subTest(text=text):
+                self.prompt(text)
+                self.assertEqual(self.show(), "knobs: terse full, loop standard, gated")
 
     def test_terse_phrase_inside_a_sentence_counts(self):
         self.prompt("terse ultra from now on please")
