@@ -29,7 +29,7 @@ node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expec
 | Gate | yes | yes | yes | yes |
 | Record | yes | yes | yes | yes |
 
-- `standard` is the table without the `S` cells. It's the default.
+- `standard` is the table without the `S` cells.
 - `strict` is the table with the `S` cells.
 - `light` runs the trivial column for trivial and small commits. Medium and large ones get the small column.
 
@@ -48,13 +48,11 @@ node <skills>/work-loop/scripts/ledger.js add red "test_parses_empty_file: expec
 | Docs | Check whether the repo wants docs in the same commit, through its agents file, its contributing rules or an existing changelog. Then touch the changelog, readme, agents file and package metadata as needed. | `docs: changelog +1` or `docs: none: <reason>` |
 | Review | Read-only agents with no chat context. 1 agent works through the checklist. 3 agents split it into correctness against the spec, design (reuse, smaller ways, API shape, parameter names and order) and prose. Pass the model by name. | `review: 7 findings, 4 above nit` |
 | Fix | Judge each finding on its merits. Fix a real one, with a test when behavior changes. Skip a wrong one with 1 line on why. Run CI's commands and the prose check again. | `fix: 3 fixed, 1 skipped` |
-| Driver verify | You, not an agent: the staged paths match the plan, nothing foreign is staged, CI's commands pass and the end-to-end run works on the real thing. | the last lines of the commands |
+| Driver verify | Do this yourself. The staged paths match the plan, nothing foreign is staged, CI's commands pass and the end-to-end run works on the real thing. | the last lines of the commands |
 | Gate | Show the commit in the gate shape of SKILL.md. At `autonomy: auto`, commit without asking. | `gate: approved` or `gate: auto` |
 | Record | Commit and tick the commit in the plan. | `commit: a1b2c3d` |
 
 ## Research
-
-Research is knowledge for the drafts, not a message.
 
 - Read the code the change touches and its tests. Read the actual code of any reference implementation before describing or planning a mechanism, even in a one-line answer. If what you would write doesn't have a counterpart in the code, ask instead of inventing it.
 - Look for an existing API, base type or helper before adding one (`rg` for the concept, the repo's own base classes, the user's reference repos).
@@ -65,12 +63,11 @@ Research is knowledge for the drafts, not a message.
 
 ## End of the branch
 
-- Before the PR, 1 read-only agent reviews the whole diff against the base with the checklist and the slice plan. It finds what a review of 1 commit can't: siblings that drifted apart, a type that lost its user, docs that match commit 2 but not commit 5. Its findings go back through the loop. A branch with only trivial commits skips it.
-- Then the PR gate and the report, as in SKILL.md.
+The review of SKILL.md §7 also gets the slice plan. It finds what a review of 1 commit can't: siblings that drifted apart, a type that lost its user, docs that match commit 2 but not commit 5.
 
 ## A stretch on auto
 
-`autonomy: auto` skips the commit gate. Everything else stays: the commit style, staging by path, the review, the end-to-end check and the CI watch. Never push the default branch.
+`autonomy: auto` skips the commit gate, `Review?` and the yes before the review agents. The review itself still runs. Everything else stays: the commit style, staging by path, the end-to-end check and the CI watch. Never push the default branch.
 
 - The permissions and safety rules of SKILL.md still apply: no downloads, installs, deletes, force pushes or posts in the user's name without a yes.
 - A design fork, an unreadable failure or a reserved decision stops only that item. Write it in the plan file for the user and go on with independent work. A public API break counts as a design fork.

@@ -22,11 +22,11 @@ Sidebars, quick questions and exploration stay flexible. The loop applies once w
 - A correction to a draft opens its gate again. Show the new draft and ask again.
 - Never open, post, edit, commit or push before its gate returns. Never call anything committed, opened or posted before it is. If something went out early, fix it at once and say so.
 - When the user posts in their own name, hand them the text and stop. Never post for them unless told.
-- At `autonomy: auto`, commit after the driver verify without asking. Pushes, PRs, comments, tags and deletes outside the repo still need their gate unless the user okayed them up front. A design fork waits in the plan file while independent work goes on. [references/stages.md](references/stages.md) has the rules for a stretch on auto.
+- At `autonomy: auto`, commit once your own checks pass and start the review agents the size calls for, without asking. Pushes, PRs, comments, tags and deletes outside the repo still need their gate unless the user okayed them up front. A design fork waits in the plan file while independent work goes on. [references/stages.md](references/stages.md) has the rules for a stretch on auto.
 
 ## Size and loop level
 
-Before you start a commit, give its size and the loop level in 1 line with the reason, like `size: trivial (rename, the compiler proves it), loop: standard`. Pick the first size that fits:
+In the read-back, give the size of the change and the loop level in 1 line with the reason, like `size: trivial (rename, the compiler proves it), loop: standard`. A plan of several commits gives each commit its own size. Pick the first size that fits:
 
 | Size | Rule | Examples |
 |---|---|---|
@@ -35,19 +35,19 @@ Before you start a commit, give its size and the loop level in 1 line with the r
 | medium | A new type that isn't public, several behaviors or a change to the public surface | new option, refactor across files |
 | large | New feature, new public type, new dependency, new tool or more than about 300 lines | a slice of a feature |
 
-The loop level is `light`, `standard` or `strict`. `standard` is the default. `strict` adds stages and `light` drops some. [references/stages.md](references/stages.md) lists the stages of each size at each level, what each one does and the proof it writes to the ledger. Change the size or the level only when the user says so.
+The `loop` knob adds or drops stages. [references/stages.md](references/stages.md) lists the stages of each size at each level, what each one does and the proof it writes to the ledger. Change the size or the level only when the user says so.
 
-A trivial change doesn't get research, a plan or a review. Give the size line, make the change and show the commit gate.
+A trivial change gets no research, plan or review.
 
 ## Knobs
 
-The user's choices for a repo are in `.git/work-loop/knobs.json`, like `{"loop": "strict", "issues": "never"}`. Read it in the state check. When the user sets a knob for the repo, write it there. The commit guard also reads the user's defaults from `knobs.json` in the plugin's data folder. The repo file wins over it. A knob that isn't set uses its default.
+The user's choices for a repo are in `$(git rev-parse --git-common-dir)/work-loop/knobs.json`, like `{"loop": "strict", "issues": "never"}`. Read it in the state check. When the user sets a knob for the repo, write it there. A knob that isn't set uses its default.
 
 | Knob | Values | Default | What it changes |
 |---|---|---|---|
 | `loop` | `light`, `standard`, `strict` | `standard` | The stages each size runs |
 | `autonomy` | `gated`, `auto` | `gated` | `auto` skips the commit gate. Only the user's words turn it on for 1 stretch of work. It never goes in the file. |
-| `docs` | `repo`, `on`, `off` | `repo` | The docs step. `repo` follows the repo's rules and files and suggests docs once for a new repo. |
+| `docs` | `repo`, `on`, `off` | `repo` | The docs step. `repo` follows the repo's rules and files and suggests docs once for a new repo. `on` wants a doc change with every source change. `off` skips the step. |
 | `issues` | `house`, `after-code`, `never` | `house` | The issue step |
 | `narrate` | `silent`, `milestones` | `silent` | `milestones` adds a 1-line note at each step for a user who can't watch the session |
 | `review-model`, `plan-model`, `impl-model` | a model and an effort | the session model | The model of each kind of agent, always passed by name |
@@ -57,15 +57,15 @@ The user's choices for a repo are in `.git/work-loop/knobs.json`, like `{"loop":
 ## The order
 
 ```
-state check -> read-back -> Go? -> research -> (issue draft -> Approve?)+ -> create issue -> branch
-  -> prior art -> plan -> Go?
-  -> ( size and level -> failing test -> code -> narrow tests, CI's format and lint -> end-to-end run
+state check -> read-back with size and level -> Go? -> research -> (issue draft -> Approve?)+ -> create issue
+  -> branch -> prior art -> plan -> Go?
+  -> ( failing test -> code -> narrow tests, CI's format and lint -> end-to-end run
        -> prose sweep -> stage by path -> present -> Approve? -> commit )+
   -> review (read-only, no chat context) -> (findings -> commit loop)*
   -> (PR draft -> Approve?)+ -> open PR -> report -> watch reviews and CI
 ```
 
-A rejected gate is a lap: rework, restage, present again. Nothing is committed, opened or posted between a rejection and the next approval.
+A trivial change goes from `Go?` straight to the branch and the commit loop. A rejected gate is a lap: rework, restage, present again. Nothing is committed, opened or posted between a rejection and the next approval.
 
 ## 0. State check
 
@@ -85,11 +85,11 @@ It fetches and prints the branch, the tree, a missing upstream and how far the b
 
 ## 1. Read-back
 
-One line with the change as understood and the options in effect (branch name, issue or not, review or not). A quick look at the code to understand the request is fine first, but deeper research waits for `Go?`. When a request seems to go against a documented design, say so in the read-back. Open options (issue or not, branch base) go in the read-back as one line each with the default you'd pick, so the user's answer to `Go?` settles them. End on a bare `Go?`.
+One line with the change as understood and the options in effect (the size line, branch name, issue or not, review or not). A quick look at the code to understand the request is fine first, but deeper research waits for `Go?`. When a request seems to go against a documented design, say so in the read-back. Open options (issue or not, branch base) go in the read-back as one line each with the default you'd pick, so the user's answer to `Go?` settles them. End on a bare `Go?`.
 
 ## 2. Research
 
-Knowledge for the drafts, not a message. Read the code the change touches, its tests and the repo's house style. Verify every factual claim before you state it. [references/stages.md](references/stages.md) has the full list.
+Research feeds the drafts. Don't post it as a message. Read the code the change touches, its tests and the repo's house style. Verify every factual claim before you state it. [references/stages.md](references/stages.md) has the full list.
 
 ## 3. Issue
 
@@ -116,7 +116,7 @@ Follow the `issues` knob. At `house`, skip this step on repos that don't use iss
 
 ## 6. Commit loop
 
-Work the whole change out end to end, then stage and present exactly one commit at a time. Leave out the steps its size skips.
+Work the whole change out end to end, then stage and present exactly one commit at a time. Every size runs these steps. Only a trivial commit, or a small one at `loop: light`, skips step 1. [references/stages.md](references/stages.md) lists the stages a size adds, like a review agent.
 
 1. Write one failing test, in its own tool call. For a fix whose failure CI already shows (a lint error, a type error), that failing CI job is the failing test: reproduce it locally first. Run it and confirm it fails for the intended reason. A test that passes on its first run gets rewritten until it fails.
 2. Write the least code that passes it, in a separate tool call. The test and the code go into the same commit.
@@ -148,9 +148,9 @@ Fixups and scope:
 
 ## 7. Review
 
-Run it before every PR, also in autonomous mode. Skip it only when the user tells you to or when the branch has only trivial commits.
+Run it before every PR, also at `autonomy: auto`. Skip it only when the user tells you to or when the branch has only trivial commits.
 
-- Run the reviewer on `review-model`. Say in chat which model and effort it runs at, then `Review?`.
+- Run the reviewer on `review-model`. Say in chat which model and effort it runs at, then `Review?`, except at `autonomy: auto`.
 - The reviewer is one read-only agent with no chat context. Give it the issue text, the full diff against the base and the test command. Tell it not to edit anything and not to start long processes. Have it work through [references/review-checklist.md](references/review-checklist.md) and return a verdict line and a table of severity, location, finding and the input that shows it.
 - Judge every finding on its merits. Rebut a wrong but plausible one instead of appeasing it. Real findings go back through the commit loop, test first.
 - When a reviewer flags one site, rerun that criterion over the whole function and diff.
