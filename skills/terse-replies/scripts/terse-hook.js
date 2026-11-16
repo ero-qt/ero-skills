@@ -1,5 +1,6 @@
 // Keeps the terse-replies level in effect for a whole session.
-// `prompt` runs on UserPromptSubmit: it reads level commands from the prompt and prints a reminder of the level.
+// `prompt` runs on UserPromptSubmit: it reads level commands from the prompt, marks prompts like "explain ..."
+// and prints a reminder of the level.
 // `session` runs on SessionStart: it prints the same reminder, so the level comes back after a compaction.
 
 const fs = require('fs');
@@ -13,6 +14,7 @@ const SKILL = path.join(__dirname, '..', 'SKILL.md');
 const mode = process.argv[2];
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
 const stateFile = path.join(dataDir, 'terse-level');
+const explainFile = path.join(dataDir, 'terse-explain');
 
 function readLevel() {
     try {
@@ -36,6 +38,20 @@ function findCommand(prompt) {
 
     const match = text.match(/\bterse (lite|full|ultra)\b/);
     return match ? match[1] : null;
+}
+
+// The skill allows a full explanation for these prompts, so reply-check.js leaves their length alone.
+function asksForExplanation(prompt) {
+    return /\b(explain|explanation|walk me through|in detail|elaborate)\b/i.test(prompt);
+}
+
+function writeExplainFlag(explain) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    if (explain) {
+        fs.writeFileSync(explainFile, '1');
+    } else {
+        fs.rmSync(explainFile, { force: true });
+    }
 }
 
 // Reads the level's description from the levels table in SKILL.md, so the reminder can't drift from the skill.
@@ -80,6 +96,8 @@ process.stdin.on('end', () => {
     if (command) {
         writeLevel(command);
     }
+
+    writeExplainFlag(asksForExplanation(prompt));
 
     print('UserPromptSubmit', readLevel());
 });

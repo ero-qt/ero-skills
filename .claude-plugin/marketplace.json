@@ -68,6 +68,16 @@
               }
             ]
           }
+        ],
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/reply-check.js\""
+              }
+            ]
+          }
         ]
       }
     },
