@@ -66,7 +66,7 @@ One line with the change as understood and the options in effect (branch name, i
 
 Knowledge for the drafts, not a message.
 
-- Read the code the change touches and its tests. Read the actual code of any reference implementation before describing or planning a mechanism, even in a one-line answer. If what you would write has no counterpart in the code, ask instead of inventing it.
+- Read the code the change touches and its tests. Read the actual code of any reference implementation before describing or planning a mechanism, even in a one-line answer. If what you would write doesn't have a counterpart in the code, ask instead of inventing it.
 - Look for an existing API, base type or helper before adding one (`rg` for the concept, the repo's own base classes, the user's reference repos).
 - Read the house style: `CONTRIBUTING*`, `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE*`, `.editorconfig`, linter and analyzer config, the CI workflow files (for the exact commands CI runs), `git log --format=%s -30`, recent merged PR titles and bodies. A new project with no precedent follows the language's or the industry's standard.
 - Read the repo's planning or agent docs (`AGENTS.md`, `CLAUDE.md`, decision logs) alongside the code, never instead of it. Notes written down from the user's offhand comments are context, not law. The user's current words win.
@@ -93,7 +93,7 @@ Skip this step on repos that don't use issues or when the user tells you to. Whe
 - Check prior art before planning: a sibling in the repo, the library's docs, the user's own earlier attempts and reference repos, one or two known implementations. When a recognized model exists, follow it instead of reinventing beside it. When the repo already has a precedent for this kind of change, follow it without asking the maintainers first.
 - Settle the public API shape before sketching an implementation.
 - Post the plan as a numbered list, one commit per item, each line with the behavior it covers and its first failing test. `Go?`
-- When the repo has no test setup, the plan starts with a commit that adds one in the language's standard form (`unittest` or `pytest` for Python, `cargo test` for Rust), and CI to run it.
+- When the repo doesn't have a test setup, the plan starts with a commit that adds one in the language's standard form (`unittest` or `pytest` for Python, `cargo test` for Rust) and CI to run it.
 - Build only what was asked and what the issue needs. Don't build ahead of the layer you're on. Never cut or weaken a feature the user called required. Propose a later slice instead. Don't bring back a rejected design under a new name.
 
 ## 6. Commit loop

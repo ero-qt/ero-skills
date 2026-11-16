@@ -46,7 +46,7 @@ The full list of rejected phrasings with the fixed forms is in [references/tells
 
 ## 4. Commit messages
 
-Defaults when the house has no stronger convention:
+Defaults when the house doesn't have a stronger convention:
 
 - Subject only. No body, no issue reference, no trailer.
 - Imperative, present tense, no articles (`add tick provider`, not `add a tick provider`).

@@ -87,7 +87,7 @@ PROSE_FILES = (".md", ".markdown", ".txt", ".rst")
 
 
 def comment_text(path, line):
-    """Returns the comment part of a code line, or None when the line has no comment."""
+    """Returns the comment part of a code line, or None when the line doesn't have a comment."""
     for pattern, endings in COMMENTS.items():
         if path.endswith(endings):
             match = pattern.search(line)

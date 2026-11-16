@@ -32,7 +32,7 @@ echo
 echo "## branch and tree"
 git status --short --branch
 if ! git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' > /dev/null 2>&1; then
-    echo "branch $(git branch --show-current) has no upstream (not pushed)"
+    echo "branch $(git branch --show-current) isn't pushed (no upstream)"
 fi
 
 base=""

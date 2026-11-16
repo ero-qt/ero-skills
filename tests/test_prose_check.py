@@ -16,7 +16,7 @@ def run(*args, stdin=None, cwd=None):
 
 
 def git(cwd, *args):
-    # Sets an identity because CI runners have no git user configured.
+    # Sets an identity because CI runners don't have a git user configured.
     subprocess.run(["git", "-c", "commit.gpgsign=false", "-c", "core.autocrlf=false", "-c", "user.name=test",
                     "-c", "user.email=test@example.com", *args],
                    cwd=cwd, check=True, capture_output=True)
