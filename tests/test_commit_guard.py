@@ -426,6 +426,37 @@ class CommitGuard(unittest.TestCase):
             with self.subTest(command=command):
                 self.assert_denied(self.guard(command), ".env")
 
+    # Without the prose check script the other checks still run.
+    def test_missing_prose_check_skips_only_the_prose_check(self):
+        copy = os.path.join(self.data, "skills", "work-loop", "scripts")
+        os.makedirs(copy)
+        for name in [GUARD, LEDGER]:
+            shutil.copy(name, copy)
+        self.stage("notes.md", f"A {DASH} B\n")
+        self.stage(".env", "TOKEN=1\n")
+        event = {"cwd": self.repo, "tool_name": "Bash", "tool_input": {"command": 'git commit -m "Add notes"'}}
+
+        result = subprocess.run([NODE, os.path.join(copy, "commit-guard.js")], input=json.dumps(event),
+                                capture_output=True, encoding="utf-8", env=self.env)
+
+        reason = json.loads(result.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn(".env", reason)
+        self.assertNotIn("prose check", reason)
+
+    # Without Python on the path the other checks still run.
+    def test_missing_python_skips_only_the_prose_check(self):
+        folders = {os.path.dirname(shutil.which(name)) for name in ["node", "git"]}
+        if any(shutil.which(name, path=os.pathsep.join(folders)) for name in ["python", "python3"]):
+            self.skipTest("python sits next to node or git")
+        self.stage("notes.md", f"A {DASH} B\n")
+        self.stage(".env", "TOKEN=1\n")
+        self.env["PATH"] = os.pathsep.join(folders)
+
+        output = self.guard()
+
+        self.assert_denied(output, ".env")
+        self.assertNotIn("prose check", output["permissionDecisionReason"])
+
     def test_other_tools_pass(self):
         self.stage(".env", "TOKEN=1\n")
 
