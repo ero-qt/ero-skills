@@ -9,8 +9,9 @@ const { readKnobs } = require('../../work-ethic/scripts/knobs');
 const { flagFile } = require('./terse-reminder');
 
 const CHECKED_LEVELS = ['full', 'ultra'];
-const MAX_GATE_LINES = 12;
+const MAX_ANSWER_LINES = 3;
 const MAX_BULLETS = 5;
+const MAX_GATE_LINES = 12;
 const MAX_WORDS_PER_LINE_AT_ULTRA = 12;
 
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
@@ -72,6 +73,21 @@ function trimBlankEnds(lines) {
     return lines.slice(first, last + 1);
 }
 
+// Drops the bold markers, so a label like `**State:**` reads like `State:`.
+function withoutBold(text) {
+    return text.replace(/\*\*|__/g, '');
+}
+
+function filledLines(plain) {
+    return plain.filter((line) => line.trim()).map(withoutBold);
+}
+
+// A read-back or a plan ends on a bare `Go?`. It takes the place of the close like `Approve?` does. The length and
+// subject rules are only for the commit gate.
+function endsOnGo(plain) {
+    return /^\s*Go\?\s*$/.test(filledLines(plain).at(-1) || '');
+}
+
 function checkGate(lines, findings, explain) {
     const gateIndex = lines.findIndex((line) => !line.fenced && /^\s*Approve\?/.test(line.text));
     if (gateIndex < 0) {
@@ -108,10 +124,27 @@ function checkWording(plain, findings) {
     }
 }
 
+// Returns the length of the longest list. A line of text between 2 bullets starts a new list, so a list split
+// under `Now:` and `Later:` counts per part. A blank line doesn't.
+function longestList(plain) {
+    let longest = 0;
+    let current = 0;
+    for (const line of plain) {
+        if (/^\s*[-*+]\s/.test(line)) {
+            current++;
+            longest = Math.max(longest, current);
+        } else if (line.trim()) {
+            current = 0;
+        }
+    }
+
+    return longest;
+}
+
 function checkLength(plain, findings, level) {
-    const bullets = plain.filter((line) => /^\s*[-*+]\s/.test(line)).length;
+    const bullets = longestList(plain);
     if (bullets > MAX_BULLETS) {
-        findings.push(soft('bullets', `${bullets} bullets, max ${MAX_BULLETS}`));
+        findings.push(soft('bullets', `${bullets} bullets in 1 list, max ${MAX_BULLETS}`));
     }
 
     const filled = plain.filter((line) => line.trim());
@@ -165,12 +198,15 @@ function turnUsedTools(transcriptPath) {
         && entry.message.content.some((block) => block.type === 'tool_use'));
 }
 
+// Logs a missing close after a turn that used tools. The skill only has a close when work is pending, which the
+// reply text doesn't show. So a reply of at most 3 lines without a list counts as a pure answer and is left alone.
 function checkClose(plain, findings, transcriptPath) {
-    if (!transcriptPath || turnUsedTools(transcriptPath) !== true) {
+    const filled = filledLines(plain);
+    const pureAnswer = filled.length <= MAX_ANSWER_LINES && !filled.some((line) => /^\s*([-*+]|\d+[.)])\s/.test(line));
+    if (pureAnswer || !transcriptPath || turnUsedTools(transcriptPath) !== true) {
         return;
     }
 
-    const filled = plain.filter((line) => line.trim());
     const labels = filled.slice(-2).filter((line) => /^\s*\p{L}+:\s/u.test(line)).length;
     if (labels < 2 && !filled.some((line) => /^\s*(State|Next):/.test(line))) {
         findings.push(soft('close', 'turn used tools, reply doesn\'t close on State and Next'));
@@ -197,7 +233,7 @@ function check(event) {
     const plain = lines.filter((line) => !line.fenced).map((line) => line.text);
     const findings = [];
 
-    const gated = checkGate(lines, findings, explain);
+    const gated = checkGate(lines, findings, explain) || endsOnGo(plain);
     checkWording(plain, findings);
     checkCountLabels(plain, findings);
     if (!explain) {

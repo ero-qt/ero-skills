@@ -12,6 +12,21 @@ CHECK = os.path.join(SCRIPTS, "reply-check.js")
 KNOBS = os.path.abspath(os.path.join(SCRIPTS, "..", "..", "work-ethic", "scripts", "knobs.js"))
 NODE = shutil.which("node") or "node"
 
+LONG_REPORT = "\n".join([
+    "Build fixed.",
+    "Cache folder missing on runner.",
+    "Cleanup step removed it.",
+    "Step skips it now.",
+])
+
+TOOL_TURN = [
+    {"type": "user", "message": {"role": "user", "content": "fix the build"}},
+    {"type": "assistant", "message": {"role": "assistant", "content": [
+        {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "make"}}]}},
+    {"type": "user", "message": {"role": "user", "content": [
+        {"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}},
+]
+
 GATE_OK = "\n".join([
     "Commit staged, 6 files.",
     "Tests pass, 48/48.",
@@ -202,6 +217,20 @@ class ReplyCheck(unittest.TestCase):
 
         self.assertEqual(self.check(message), [])
 
+    # The skill splits a long list into "now" and "later", so each part has its own count.
+    def test_bullets_count_per_part_of_a_split_list(self):
+        now = "\n".join(f"- `f{index}.py`" for index in range(4))
+        later = "\n".join(f"- `g{index}.py`" for index in range(4))
+
+        self.assertEqual(self.check(f"8 files changed.\n\nNow:\n{now}\n\nLater:\n{later}"), [])
+
+    # A blank line alone doesn't split a list.
+    def test_blank_line_doesnt_split_a_list(self):
+        first = "\n".join(f"- `f{index}.py`" for index in range(3))
+        second = "\n".join(f"- `g{index}.py`" for index in range(3))
+
+        self.assertEqual(self.rules(self.check(f"6 files changed.\n{first}\n\n{second}"), "soft"), ["bullets"])
+
     # At ultra, lines that average more than 12 words are a soft finding. Inline code doesn't count as words.
     def test_long_lines_at_ultra_log_a_soft_finding(self):
         self.set_level("ultra")
@@ -220,21 +249,40 @@ class ReplyCheck(unittest.TestCase):
 
         self.assertEqual(self.check(message), [])
 
-    # A turn that used tools has to close on State and Next.
+    # A report after a turn that used tools has to close on State and Next.
     def test_tool_turn_without_close_logs_a_soft_finding(self):
-        transcript = self.write_transcript([
-            {"type": "user", "message": {"role": "user", "content": "fix the build"}},
-            {"type": "assistant", "message": {"role": "assistant", "content": [
-                {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "make"}}]}},
-            {"type": "user", "message": {"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}},
-        ])
+        transcript = self.write_transcript(TOOL_TURN)
 
-        self.assertEqual(self.rules(self.check("Build fixed.", transcript_path=transcript), "soft"), ["close"])
+        self.assertEqual(self.rules(self.check(LONG_REPORT, transcript_path=transcript), "soft"), ["close"])
         os.remove(os.path.join(self.data, "slips.jsonl"))
-        self.assertEqual(self.check("Build fixed.\n\nState: done.\nNext: push.", transcript_path=transcript), [])
-        self.assertEqual(self.check("Build fixed.\n\nStand: fertig.\nWeiter: push.", transcript_path=transcript), [])
+        self.assertEqual(self.check(LONG_REPORT + "\n\nState: done.\nNext: push.", transcript_path=transcript), [])
+        self.assertEqual(self.check(LONG_REPORT + "\n\nStand: fertig.\nWeiter: push.", transcript_path=transcript), [])
         self.assertEqual(self.check(GATE_OK, transcript_path=transcript), [])
+
+    # A close with bold labels is still a close.
+    def test_close_with_bold_labels_passes(self):
+        transcript = self.write_transcript(TOOL_TURN)
+
+        for close in ["**State:** done.\n**Next:** push.", "**Stand**: fertig.\n**Weiter**: push."]:
+            with self.subTest(close=close):
+                self.assertEqual(self.check(f"{LONG_REPORT}\n\n{close}", transcript_path=transcript), [])
+
+    # A read-back or a plan ends on a bare `Go?`, which takes the place of the close.
+    def test_go_gate_takes_the_place_of_the_close(self):
+        transcript = self.write_transcript(TOOL_TURN)
+
+        self.assertEqual(self.check(LONG_REPORT + "\n\nGo?", transcript_path=transcript), [])
+        self.assertEqual(self.rules(self.check(LONG_REPORT + "\nGo? Or wait.\nMore text.", transcript_path=transcript)),
+                         ["close"])
+
+    # A reply of at most 3 lines without a list counts as a pure answer, so a missing close isn't logged for it.
+    def test_short_answer_after_tools_needs_no_close(self):
+        transcript = self.write_transcript(TOOL_TURN)
+
+        self.assertEqual(self.check("Yes.", transcript_path=transcript), [])
+        self.assertEqual(self.check("No.\n\n3 callers left.\nAll in `src/io`.", transcript_path=transcript), [])
+        steps = "Blocked.\n1. Run `gh auth login`\n2. Approve"
+        self.assertEqual(self.rules(self.check(steps, transcript_path=transcript)), ["close"])
 
     # Tools from an earlier turn don't count, because the turn starts at the last typed prompt.
     def test_tools_before_the_last_prompt_dont_count(self):
