@@ -79,7 +79,22 @@ CHECK = [
     ("'here' for the user's machine", re.compile(
         r"\b(run|runs|ran|installed|works?|worked|built|build|test(ed)?) (it |them )?here\b|\bthis machine\b", re.I)),
     ("history word", re.compile(r"\b(previously|used to|no longer|anymore)\b", re.I)),
-    ("comma before 'and' or 'or'", re.compile(r", (and|or)\b")),
+    # A list keeps its ", and" before the last item. Only a 2nd clause with its own subject and verb counts.
+    ("clause after ', and'", re.compile(
+        r", and (?:(?:that|it|there|here|he|she)'s|(?:they|we|you)'re|"
+        r"(?:(?:the|a|an|this|that|these|those|its|their|our|my|your|each|every|another|no|all|both|some) (?:(?!(?:of|in|for|per|on|from|to|with|by|and|or) )[\w'-]+ ){1,4}?|"
+        r"(?:it|they|we|i|you|he|she|that|this|there|nothing|everything|nobody) |"
+        r"(?:``|#\d+|[A-Z][\w.]*)(?:'s)? (?:[a-z-]+ ){0,2}?)"
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|will|would|should|must|may|might|"
+        r"isn't|aren't|wasn't|doesn't|don't|didn't|can't|won't|"
+        r"(?:get|keep|read|write|run|need|take|make|return|stop|start|use|add|show|wait|count|clear|check|come|work|"
+        r"break|change|find|give|call|set|put|send|load|build|throw|fail|print|skip|open|close|pick|drop|stay|turn)s|"
+        r"goes|went|got|kept|wrote|ran|took|made|came|broke|found|gave|sent|built|threw|passes|fixes|"
+        r"(?:fix|fail|pass|add|skip|pick|open|close|start|stop|need|show|wait|count|clear|check|work|print|call|load|"
+        r"return|chang|us|mov|merg|drop)(?:ed|d|ped))\b)", re.I)),
+    ("'one' as a pronoun", re.compile(
+        r"\b(?:the|this|that|which|each|another|with|a|an)(?: [a-z-]+)? ones?"
+        r"(?=[.,;:!?)]|$| (?:that|which|who|with|in|on|for|from|is|are|was|were|has|have|and|or|but)\b)", re.I)),
     ("semicolon in prose", re.compile(r"\w; [A-Za-z]")),
     ("spelled-out number", re.compile(
         r"\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|hundred)\b", re.I)),

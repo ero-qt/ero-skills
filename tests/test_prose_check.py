@@ -118,6 +118,9 @@ class SpecRules(unittest.TestCase):
         "significance claim": ("Retries play a key role in the client.", "The client retries 3 times."),
         "announcing intro": ("This section covers the config file.", "The config file is TOML."),
         "teaching tone": ("Please ensure that the path exists.", "The path doesn't exist."),
+        "clause after ', and'": ("Everything is merged, and #172 fixed the reader.",
+                                 "Everything is merged because #172 fixed the reader."),
+        "'one' as a pronoun": ("Limit the rule to types that end with one", "Limit the rule to types that end with a noun"),
     }
 
     def test_each_rule_flags_its_tell_and_passes_the_plain_form(self):
@@ -125,6 +128,32 @@ class SpecRules(unittest.TestCase):
             with self.subTest(rule=rule):
                 self.assertIn(rule, run("--text", bad)[1])
                 self.assertNotIn(rule, run("--text", good)[1])
+
+    def test_clause_after_comma_and_is_flagged_for_each_subject_form(self):
+        for text in ("Here's some information, and that's the important bit.",
+                     "The cache keeps 10 entries, and it clears on save.",
+                     "The reader checks the cache first, and the writer waits.",
+                     "The parser stops at `\\r`, and `Writer` does something else.",
+                     "Tom's reader is fast, and Ann's reader is different."):
+            with self.subTest(text=text):
+                self.assertIn("clause after ', and'", run("--text", text)[1])
+
+    def test_list_with_comma_before_the_last_item_passes(self):
+        for text in ("It runs on Linux, Mac, and Windows.",
+                     "Gets the error of the read, or null after a good read.",
+                     "The tool reads the config, the cache, and the log of every run."):
+            with self.subTest(text=text):
+                self.assertNotIn("clause after ', and'", run("--text", text)[1])
+
+    def test_one_as_a_pronoun_is_flagged(self):
+        for text in ("Use the newer ones.", "Keep the first one and drop the rest.", "A type that ends with one."):
+            with self.subTest(text=text):
+                self.assertIn("'one' as a pronoun", run("--text", text)[1])
+
+    def test_one_of_and_one_as_a_count_pass(self):
+        for text in ("Pick one of the 3 files.", "It takes one more read.", "No one runs it."):
+            with self.subTest(text=text):
+                self.assertNotIn("'one' as a pronoun", run("--text", text)[1])
 
     def test_definition_first_is_a_fronted_clause(self):
         self.assertIn("fronted clause", run("--text", "`\\r` is a line ending and the parser stops there")[1])

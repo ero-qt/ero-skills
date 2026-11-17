@@ -66,7 +66,8 @@ The Check column lists the rules of `scripts/prose_check.py` that flag a row. `p
 | Dramatic short sentence | A short sentence after a long one reads as emphasis in repo text. | "...doesn't find any images on Linux. The exporter doesn't start." | "...doesn't find any images on Linux and the exporter doesn't start at all." | `dramatic short sentence` |
 | Colon setup | It builds up to a reveal. | "The result: faster builds." | "Builds got faster." | `colon setup` |
 | Hidden verb | The action hides in a noun. | "performs validation of the input", "provides support for TOML" | "checks the input", "supports TOML" | `nominalization` |
-| ", and" chain | Clauses get stacked with a comma before each "and". | "Everything is merged, and #172 fixed X" | "Everything is merged and #172 fixed X" | `comma before 'and' or 'or'` |
+| Clause tacked on with ", and" | A 2nd clause with its own subject hangs off a sentence that was already done. Deleting the comma or cutting it into 2 short sentences keeps the tell. A list with ", and" before its last item is fine. | "Here's the setting, and that's the important bit.", "The reader checks the cache, and the writer does something else.", "Everything is merged, and #172 fixed X" | say how the 2 facts relate ("Everything is merged because #172 fixed X"), give the 2nd fact its own sentence when it's its own point, or cut it | `clause after ', and'` |
+| "one" for a noun | A pronoun stands where the noun belongs. | "types that end with one", "the newer ones" | "types whose name ends with a role noun", "the newer builds" | `'one' as a pronoun` |
 | Dropped noun, bare pronoun, missing object | It's compressed past what a reader can follow. | "with it cleared", "to find the manager", "and its tool says" | "after the cache is cleared", "to find the session manager", the full clause | reader |
 | Passive with no actor | Nobody does anything. | "the defaults are dropped" | "We drop zip's default features." | reader |
 | Apposition for a type | It introduces a name with a label. | "a `ManagedString<N>` type", "`Foo`, an X underneath" | "`ManagedString<N>`", "I added `Foo`. It wraps X." | reader |
@@ -78,6 +79,7 @@ The Check column lists the rules of `scripts/prose_check.py` that flag a row. `p
 |---|---|---|---|---|
 | Flat sentence length | Sentences a person writes vary a lot more in length. | 4 sentences of 14 to 16 words each | join 2 of them and leave 1 short | `flat sentence length` |
 | Same skeleton in a row | The same template over and over: claim, comma, "and", claim, or the same first word. | "The cache keeps 10 entries. The reader checks it first. The writer clears it on save." | change the shape of every 2nd sentence | `same skeleton in a row` |
+| Row of 1-fact sentences | Each sentence states 1 fact and stops, so the reader has to work out how the facts relate. | "The DLLs import `WaitOnAddress`. The x64 DLL also imports `ProcessPrng`. Windows 7 doesn't have them." | "Windows 7 doesn't have `WaitOnAddress` or `ProcessPrng`, so it can't load the DLLs." | reader |
 | Uniform blocks | Layout by template: every paragraph 2 sentences, every bullet a bold label, a sentence and then 3 bullets each time. | 4 sections that each have 1 sentence and 3 bullets | a list for a list, a paragraph for a reason | reader |
 
 ## Flow
