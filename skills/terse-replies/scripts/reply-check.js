@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { readKnobs } = require('../../work-ethic/scripts/knobs');
+const { flagFile } = require('./terse-reminder');
 
 const CHECKED_LEVELS = ['full', 'ultra'];
 const MAX_GATE_LINES = 12;
@@ -14,9 +15,9 @@ const MAX_WORDS_PER_LINE_AT_ULTRA = 12;
 
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
 
-function readFile(name) {
+function readFile(file) {
     try {
-        return fs.readFileSync(path.join(dataDir, name), 'utf8').trim();
+        return fs.readFileSync(file, 'utf8').trim();
     } catch {
         return '';
     }
@@ -186,7 +187,7 @@ function check(event) {
         return [];
     }
 
-    const explain = readFile('terse-explain') === '1';
+    const explain = readFile(flagFile(dataDir, event.session_id, 'terse-explain')) === '1';
     const lines = readLines(message);
     const plain = lines.filter((line) => !line.fenced).map((line) => line.text);
     const findings = [];
@@ -204,20 +205,20 @@ function check(event) {
     return findings;
 }
 
-function log(findings) {
+function log(findings, event) {
     if (!findings.length) {
         return;
     }
 
-    const time = new Date().toISOString();
-    const lines = findings.map((finding) => JSON.stringify({ time, check: 'reply', ...finding }) + '\n');
+    const record = { time: new Date().toISOString(), check: 'reply', session_id: event.session_id, cwd: event.cwd };
+    const lines = findings.map((finding) => JSON.stringify({ ...record, ...finding }) + '\n');
     fs.mkdirSync(dataDir, { recursive: true });
     fs.appendFileSync(path.join(dataDir, 'slips.jsonl'), lines.join(''));
 
     // terse-reminder.js prints these lines at the next prompt.
     const broken = findings.filter((finding) => finding.kind === 'hard').map((finding) => finding.detail);
     if (broken.length) {
-        fs.writeFileSync(path.join(dataDir, 'terse-slipped'), broken.join('\n'));
+        fs.writeFileSync(flagFile(dataDir, event.session_id, 'terse-slipped'), broken.join('\n'));
     }
 }
 
@@ -225,7 +226,8 @@ let input = '';
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
     try {
-        log(check(JSON.parse(input)));
+        const event = JSON.parse(input);
+        log(check(event), event);
     } catch {
         // A broken event or an unwritable log never fails the turn.
     }

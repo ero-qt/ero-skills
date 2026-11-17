@@ -44,14 +44,14 @@ class ReplyCheck(unittest.TestCase):
         with open(os.path.join(self.data, "knobs.json"), "w", encoding="utf-8") as file:
             json.dump({"terse": level}, file)
 
-    def prompt(self, text):
-        event = {"prompt": text, "cwd": self.data}
+    def prompt(self, text, session=None):
+        event = {"prompt": text, "cwd": self.data, "session_id": session}
         subprocess.run([NODE, KNOBS, "prompt"], input=json.dumps(event), capture_output=True, encoding="utf-8",
                        env=self.env, cwd=self.data, check=True)
 
-    def check(self, message, stop_hook_active=False, transcript_path=None, raw=None):
+    def check(self, message, stop_hook_active=False, transcript_path=None, raw=None, session=None):
         event = {"hook_event_name": "Stop", "stop_hook_active": stop_hook_active, "last_assistant_message": message,
-                 "cwd": self.data}
+                 "cwd": self.data, "session_id": session}
         if transcript_path:
             event["transcript_path"] = transcript_path
         result = subprocess.run([NODE, CHECK], input=raw if raw is not None else json.dumps(event),
@@ -152,6 +152,20 @@ class ReplyCheck(unittest.TestCase):
         self.prompt("fix the build")
 
         self.assertEqual(self.rules(self.check(gate_of(19)), "hard"), ["gate-length"])
+
+    # Each session has its own explain flag, so an "explain" prompt in 1 session leaves the others alone.
+    def test_explain_prompt_of_another_session_doesnt_count(self):
+        self.prompt("explain the cache", session="a/1")
+
+        self.assertEqual(self.check(gate_of(19), session="a/1"), [])
+        self.assertEqual(self.rules(self.check(gate_of(19), session="b"), "hard"), ["gate-length"])
+
+    # Each record gives the session and the folder, so the log shows where a rule got broken.
+    def test_record_has_the_session_and_the_folder(self):
+        slip = self.check("A — B.", session="a")[0]
+
+        self.assertEqual(slip["session_id"], "a")
+        self.assertEqual(slip["cwd"], self.data)
 
     # At lite or with terse off, the check doesn't log anything.
     def test_lite_and_off_skip_the_check(self):

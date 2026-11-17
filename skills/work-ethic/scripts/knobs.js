@@ -211,8 +211,8 @@ function runPrompt(context, event) {
     let slipped = '';
     try {
         saveKnobs(changes, context);
-        writeExplainFlag(context.dataDir, prompt);
-        slipped = promptReminder(context.dataDir, readKnobs(context).terse);
+        writeExplainFlag(context.dataDir, context.session, prompt);
+        slipped = promptReminder(context.dataDir, context.session, readKnobs(context).terse);
     } catch {
         // An unwritable file never fails the prompt.
     }

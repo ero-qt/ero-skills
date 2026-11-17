@@ -251,6 +251,14 @@ class TerseReminder(KnobsCase):
         self.prompt("next task")
         self.assertEqual(self.prompt_output, "")
 
+    # A broken rule only comes back in the session of the reply that broke it.
+    def test_hard_finding_of_another_session_stays_out(self):
+        self.end_turn(LONG_GATE, session="two")
+        self.prompt("next task", session="one")
+
+        self.assertEqual(self.prompt_output, "")
+        self.assertIn("gate is 19 lines, max 12", self.prompt("next task", session="two"))
+
     def test_soft_finding_prints_nothing(self):
         self.end_turn("6 files.\n" + "\n".join(f"- `f{index}.py`" for index in range(6)))
         self.prompt("next task")
