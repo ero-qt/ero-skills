@@ -118,6 +118,12 @@ class ReplyCheck(unittest.TestCase):
 
         self.assertEqual(self.check(message), [])
 
+    # A title in double quotes is text from somewhere else, so its dash stays. A dash next to the quote still counts.
+    def test_dash_inside_double_quotes_passes(self):
+        self.assertEqual(self.check('Issue title: "Fix parser – trailing space".'), [])
+        self.assertEqual(self.check("Titel: „Parser – Leerzeichen“, “Fix – space”."), [])
+        self.assertEqual(self.rules(self.check('"Fix parser" – done.')), ["dash"])
+
     # A first line with validation, an apology or an announcement is a hard finding.
     def test_validating_opener_logs_a_hard_finding(self):
         for opener in ["You're right, cache was stale.", "Sorry, wrong file.", "I'll fix the test.", "Let me check."]:
@@ -131,6 +137,11 @@ class ReplyCheck(unittest.TestCase):
             with self.subTest(closing=closing):
                 self.assertEqual(self.rules(self.check("Tests pass, 48/48.\n" + closing), "hard"), ["closing-offer"])
                 os.remove(os.path.join(self.data, "slips.jsonl"))
+
+    # An offer phrase inside inline code or double quotes is a quote and not an offer.
+    def test_quoted_closing_offer_passes(self):
+        self.assertEqual(self.check("Tells updated.\nNext: add `let me know` to tells."), [])
+        self.assertEqual(self.check('Tells updated.\nNext: add "happy to" to tells.'), [])
 
     # The check prints nothing and only logs when stop_hook_active is true.
     def test_stop_hook_active_still_never_answers(self):

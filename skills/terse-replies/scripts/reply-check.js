@@ -49,6 +49,11 @@ function withoutInlineCode(text) {
     return text.replace(/`+[^`]*`+/g, ' ');
 }
 
+// Drops inline code and text in double quotes, because both repeat text from somewhere else.
+function withoutQuotes(text) {
+    return withoutInlineCode(text).replace(/"[^"]*"|[“„][^“”]*[“”]/g, ' ');
+}
+
 function wordCount(text) {
     return withoutInlineCode(text).split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
 }
@@ -88,8 +93,8 @@ function checkGate(lines, findings, explain) {
 }
 
 function checkWording(plain, findings) {
-    if (plain.some((line) => /[–—]| -- /.test(withoutInlineCode(line)))) {
-        findings.push(hard('dash', 'em dash, en dash or -- outside code'));
+    if (plain.some((line) => /[–—]| -- /.test(withoutQuotes(line)))) {
+        findings.push(hard('dash', 'em dash, en dash or -- outside code and quotes'));
     }
 
     const first = plain.find((line) => line.trim()) || '';
@@ -97,7 +102,7 @@ function checkWording(plain, findings) {
         findings.push(hard('opener', 'first line is validation, an apology or an announcement'));
     }
 
-    const closing = plain.filter((line) => line.trim()).slice(-3).join('\n');
+    const closing = plain.filter((line) => line.trim()).slice(-3).map(withoutQuotes).join('\n');
     if (/\b(let me know|happy to|want me to)\b/i.test(closing)) {
         findings.push(hard('closing-offer', 'reply ends on an offer'));
     }
