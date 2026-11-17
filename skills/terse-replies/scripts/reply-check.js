@@ -214,7 +214,7 @@ function log(findings) {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.appendFileSync(path.join(dataDir, 'slips.jsonl'), lines.join(''));
 
-    // terse-reminder.js adds these lines to the full reminder at the next prompt.
+    // terse-reminder.js prints these lines at the next prompt.
     const broken = findings.filter((finding) => finding.kind === 'hard').map((finding) => finding.detail);
     if (broken.length) {
         fs.writeFileSync(path.join(dataDir, 'terse-slipped'), broken.join('\n'));

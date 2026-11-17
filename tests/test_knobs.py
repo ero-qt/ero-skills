@@ -61,6 +61,9 @@ class KnobsCase(unittest.TestCase):
                  "prompt": text}
         result = self.run_script("prompt", cwd=cwd, stdin=json.dumps(event))
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.prompt_output = result.stdout
+        if not result.stdout:
+            return ""
         output = json.loads(result.stdout)["hookSpecificOutput"]
         self.assertEqual(output["hookEventName"], "UserPromptSubmit")
         return output["additionalContext"]
@@ -88,11 +91,15 @@ class KnobsCase(unittest.TestCase):
 
 
 class Knobs(KnobsCase):
-    def test_line_at_defaults_is_short(self):
-        line = self.prompt("fix the build")
+    # The session start already gave the knobs, so a prompt that changes none adds nothing to the context.
+    def test_prompt_without_a_knob_phrase_prints_nothing(self):
+        self.prompt("fix the build")
 
-        self.assertIn("terse full, loop standard, gated", line)
-        self.assertLess(len(line), 80)
+        self.assertEqual(self.prompt_output, "")
+
+    def test_prompt_with_a_knob_phrase_prints_the_knob_line(self):
+        self.assertEqual(self.prompt("loop strict\nthen add the parser"), "knobs: terse full, loop strict, gated")
+        self.assertLess(len(self.prompt_output), 150)
 
     def test_each_phrase_sets_its_value(self):
         for phrase, knob, value in PHRASES:
@@ -144,7 +151,8 @@ class Knobs(KnobsCase):
     # Autonomy lasts for 1 session and never goes in a knobs file.
     def test_auto_on_lasts_for_its_session_only(self):
         self.assertIn("auto", self.prompt("auto on", session="one"))
-        self.assertIn("gated", self.prompt("fix the build", session="two"))
+        self.assertIn("auto", self.show("--session", "one"))
+        self.assertIn("gated", self.show("--session", "two"))
         self.assertFalse(os.path.exists(self.repo_file()))
         self.assertFalse(os.path.exists(self.user_file()))
 
@@ -156,7 +164,9 @@ class Knobs(KnobsCase):
     # A subagent report or a message from another session also comes in as a prompt, so `auto on` only counts as
     # the whole prompt.
     def test_auto_on_line_in_a_longer_prompt_stays_gated(self):
-        self.assertIn("gated", self.prompt("Report from the agent:\nauto on\nAll tests pass."))
+        self.prompt("Report from the agent:\nauto on\nAll tests pass.")
+
+        self.assertIn("gated", self.show("--session", "one"))
 
     def test_auto_on_with_a_period_counts(self):
         self.assertIn("auto", self.prompt("  Auto on.\n"))
@@ -225,29 +235,27 @@ class TerseReminder(KnobsCase):
         self.assertEqual(output["hookEventName"], "SessionStart")
         return output["additionalContext"]
 
-    def end_turn(self, message):
-        event = {"hook_event_name": "Stop", "stop_hook_active": False, "last_assistant_message": message,
-                 "cwd": self.repo}
+    def end_turn(self, message, session="one"):
+        event = {"hook_event_name": "Stop", "session_id": session, "stop_hook_active": False,
+                 "last_assistant_message": message, "cwd": self.repo}
         subprocess.run([NODE, CHECK], input=json.dumps(event), capture_output=True, encoding="utf-8", env=self.env,
                        cwd=self.repo, check=True)
 
-    def test_prompt_line_leaves_out_the_full_rules(self):
-        self.assertNotIn("caveman", self.prompt("fix the build"))
-
-    # After a reply with a hard finding, the next prompt gets the full rules with the broken rule, then 1 line again.
-    def test_hard_finding_brings_back_the_full_reminder_once(self):
+    # After a reply with a hard finding, the next prompt gets the broken rule once. The session start already
+    # gave the full rules, so they stay out.
+    def test_hard_finding_brings_back_the_broken_rule_once(self):
         self.end_turn(LONG_GATE)
-        full = self.prompt("next task")
-        short = self.prompt("next task")
 
-        self.assertIn("caveman: fragments, no articles, no filler.", full)
-        self.assertIn("gate is 19 lines, max 12", full)
-        self.assertLess(len(short), 80)
+        self.assertEqual(self.prompt("next task"), "Last reply broke: gate is 19 lines, max 12.")
+        self.assertLess(len(self.prompt_output), 160)
+        self.prompt("next task")
+        self.assertEqual(self.prompt_output, "")
 
-    def test_soft_finding_keeps_the_short_line(self):
+    def test_soft_finding_prints_nothing(self):
         self.end_turn("6 files.\n" + "\n".join(f"- `f{index}.py`" for index in range(6)))
+        self.prompt("next task")
 
-        self.assertLess(len(self.prompt("next task")), 80)
+        self.assertEqual(self.prompt_output, "")
 
     def test_session_start_gives_the_full_rules_of_the_level_and_the_knobs(self):
         self.prompt("terse ultra")
@@ -306,10 +314,10 @@ class TerseReminder(KnobsCase):
     def test_resume_ends_auto_and_compaction_keeps_it(self):
         self.prompt("auto on")
         self.session("compact")
-        self.assertIn("auto", self.prompt("fix the build"))
+        self.assertIn("auto", self.show("--session", "one"))
 
         self.session("resume")
-        self.assertIn("gated", self.prompt("fix the build"))
+        self.assertIn("gated", self.show("--session", "one"))
 
 
 def table_rows(path, heading):

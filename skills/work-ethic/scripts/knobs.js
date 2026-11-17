@@ -4,9 +4,10 @@
 // with the session id and never in a knobs file.
 //
 // Usage:
-//     node knobs.js prompt                    UserPromptSubmit hook: saves the knob phrases of the prompt
-//                                             and prints the knobs in 1 line, with the full terse rules
-//                                             after a reply that broke one
+//     node knobs.js prompt                    UserPromptSubmit hook: saves the knob phrases of the prompt.
+//                                             It prints the knobs in 1 line when the prompt changed one
+//                                             and the broken terse rules after a reply that broke some.
+//                                             Any other prompt prints nothing
 //     node knobs.js session                   SessionStart hook: prints the full terse rules and the knobs.
 //                                             After a compaction it also prints what to reload. After a
 //                                             compaction, a resume or a fork it prints the house brief
@@ -194,23 +195,29 @@ function readEvent(input) {
     }
 }
 
+// Prints nothing when every line is empty, because each printed character goes into the context of the model.
 function print(eventName, lines) {
-    const output = { hookEventName: eventName, additionalContext: lines.filter(Boolean).join('\n') };
-    process.stdout.write(JSON.stringify({ hookSpecificOutput: output }));
+    const text = lines.filter(Boolean).join('\n');
+    if (text) {
+        const output = { hookEventName: eventName, additionalContext: text };
+        process.stdout.write(JSON.stringify({ hookSpecificOutput: output }));
+    }
 }
 
+// The session start already printed the knobs, so the knob line only comes back when the prompt changed a knob.
 function runPrompt(context, event) {
     const prompt = typeof event.prompt === 'string' ? event.prompt : '';
+    const changes = findChanges(prompt);
     let slipped = '';
     try {
-        saveKnobs(findChanges(prompt), context);
+        saveKnobs(changes, context);
         writeExplainFlag(context.dataDir, prompt);
         slipped = promptReminder(context.dataDir, readKnobs(context).terse);
     } catch {
         // An unwritable file never fails the prompt.
     }
 
-    print('UserPromptSubmit', [knobLine(readKnobs(context)), slipped]);
+    print('UserPromptSubmit', [Object.keys(changes).length ? knobLine(readKnobs(context)) : '', slipped]);
 }
 
 function resumeLines(cwd) {

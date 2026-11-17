@@ -1,7 +1,6 @@
 // Builds the terse-replies reminder that the prompt and session hooks of the work-ethic plugin print.
-// reply-check.js writes the hard rules a reply broke to `terse-slipped`. The next prompt shows them once with the
-// full reminder. A prompt like "explain ..." sets `terse-explain`, so reply-check.js leaves the length of that reply
-// alone.
+// reply-check.js writes the hard rules a reply broke to `terse-slipped`. The next prompt shows them once in 1 short
+// line. A prompt like "explain ..." sets `terse-explain`, so reply-check.js leaves the length of that reply alone.
 
 const fs = require('fs');
 const path = require('path');
@@ -53,11 +52,11 @@ function takeSlips(dataDir) {
     }
 }
 
-// Returns the full reminder with the broken rules after a reply that broke one. Returns an empty string otherwise.
+// Returns the broken rules in 1 line after a reply that broke some. Returns an empty string otherwise.
+// The full rules stay out, because the session start already gave them.
 function promptReminder(dataDir, level) {
     const slips = takeSlips(dataDir);
-    const text = reminder(level);
-    return slips.length && text ? `${text} Last reply broke: ${slips.join(', ')}.` : '';
+    return slips.length && LEVELS.includes(level) ? `Last reply broke: ${slips.join(', ')}.` : '';
 }
 
 module.exports = { promptReminder, reminder, writeExplainFlag };

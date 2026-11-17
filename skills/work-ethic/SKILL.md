@@ -32,7 +32,7 @@ A subagent starts without the skills or the chat. When it writes code or repo te
 
 The plugin's hooks run for the whole session, whether this skill is loaded or not.
 
-- At every prompt, `scripts/knobs.js` saves the knob phrases and shows the knobs in 1 line, like `knobs: terse full, loop standard, gated`. After a reply that broke a terse rule, it adds the full terse rules once.
+- At every prompt, `scripts/knobs.js` saves the knob phrases. When the prompt changed a knob, it shows the knobs in 1 line, like `knobs: terse full, loop standard, gated`. After a reply that broke a terse rule, it shows the broken rule once. Any other prompt gets no text, so the hook doesn't cost tokens.
 - At the start of a session it shows the terse rules and the knobs. After a compaction it also lists the skills to load again. After a compaction, a resume or a fork it gives the house brief and the newest ledger record.
 - At the end of each turn, `reply-check.js` of terse-replies writes down the reply rules it finds broken. It never stops the turn.
 - Before a `git commit`, `commit-guard.js` of work-loop stops a commit with a trailer, a hard prose finding or a path that must never be staged. It warns when source changed without a doc change.
