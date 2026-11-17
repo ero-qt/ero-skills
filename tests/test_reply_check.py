@@ -85,10 +85,11 @@ class ReplyCheck(unittest.TestCase):
     def rules(self, slips, kind=None):
         return sorted(slip["rule"] for slip in slips if kind is None or slip["kind"] == kind)
 
-    def write_transcript(self, entries):
+    def write_transcript(self, entries, tail=""):
         path = os.path.join(self.data, "transcript.jsonl")
-        with open(path, "w", encoding="utf-8") as file:
-            file.writelines(json.dumps(entry) + "\n" for entry in entries)
+        with open(path, "w", encoding="utf-8", newline="") as file:
+            file.writelines(json.dumps(entry, ensure_ascii=False) + "\n" for entry in entries)
+            file.write(tail)
         return path
 
     # A commit gate of 11 lines with the subject right above the gate line passes.
@@ -296,13 +297,60 @@ class ReplyCheck(unittest.TestCase):
             {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "what was it?"}]}},
         ])
 
-        self.assertEqual(self.check("Stale cache.", transcript_path=transcript), [])
+        self.assertEqual(self.check(LONG_REPORT, transcript_path=transcript), [])
 
-    # A missing or broken transcript skips the close rule instead of guessing.
+    # A missing transcript skips the close rule instead of guessing.
     def test_missing_transcript_skips_the_close_rule(self):
         missing = os.path.join(self.data, "missing.jsonl")
 
-        self.assertEqual(self.check("Build fixed.", transcript_path=missing), [])
+        self.assertEqual(self.check(LONG_REPORT, transcript_path=missing), [])
+
+    # A line that is `null` or cut off in the middle is skipped. The other lines and the wording rules still count.
+    def test_broken_transcript_lines_are_skipped(self):
+        for entries, tail in [(TOOL_TURN + [None], ""), (TOOL_TURN, '{"type": "assis'), (TOOL_TURN + [7, "x"], "\n\n")]:
+            with self.subTest(entries=len(entries), tail=tail):
+                transcript = self.write_transcript(entries, tail)
+                self.assertEqual(self.rules(self.check(LONG_REPORT + "\nA — B.", transcript_path=transcript)),
+                                 ["close", "dash"])
+                os.remove(os.path.join(self.data, "slips.jsonl"))
+
+    # Claude Code adds its own user entries with `isMeta`. The turn still starts at the prompt the user typed.
+    def test_meta_entry_doesnt_start_a_turn(self):
+        meta = {"type": "user", "isMeta": True, "message": {"role": "user", "content": "<system-reminder>"}}
+        transcript = self.write_transcript(TOOL_TURN + [meta])
+
+        self.assertEqual(self.rules(self.check(LONG_REPORT, transcript_path=transcript)), ["close"])
+
+    # The transcript is read from the end in chunks, so entries larger than a chunk and characters of several
+    # bytes at a chunk border still parse.
+    def test_turn_larger_than_a_chunk_still_counts(self):
+        big = {"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "t1", "content": "ä€😀" * 60000}]}}
+        transcript = self.write_transcript(TOOL_TURN[:2] + [big, big])
+
+        self.assertEqual(self.rules(self.check(LONG_REPORT, transcript_path=transcript)), ["close"])
+
+    def test_tools_before_a_prompt_larger_than_a_chunk_dont_count(self):
+        prompt = {"type": "user", "message": {"role": "user", "content": "ä€😀" * 60000}}
+        text = {"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "text", "text": "x" * 70000}]}}
+        transcript = self.write_transcript(TOOL_TURN + [prompt, text])
+
+        self.assertEqual(self.check(LONG_REPORT, transcript_path=transcript), [])
+
+    # The hook stays silent when a script it loads is missing, so a broken install doesn't print at every turn.
+    def test_missing_module_is_silent(self):
+        alone = os.path.join(self.data, "alone.js")
+        shutil.copy(CHECK, alone)
+        event = {"hook_event_name": "Stop", "last_assistant_message": "A — B.", "cwd": self.data}
+        result = subprocess.run([NODE, alone], input=json.dumps(event), capture_output=True, encoding="utf-8",
+                                env=self.env, cwd=self.data)
+
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, "", ""))
+
+    # The reply is read as UTF-8, so a character of several bytes next to a dash doesn't hide the dash.
+    def test_non_ascii_reply_is_read_as_utf8(self):
+        self.assertEqual(self.rules(self.check("Größe: 3 – 4.")), ["dash"])
 
     # A count like 1/2 needs every other part on screen too.
     def test_count_without_other_half_logs_a_soft_finding(self):

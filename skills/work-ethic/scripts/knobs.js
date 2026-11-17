@@ -133,9 +133,14 @@ function known(values) {
             && validValue(name, value.split(/\s+/).filter(Boolean)) !== null));
 }
 
+// Returns the user's knobs over the defaults. It leaves out the repo file, so it doesn't start git.
+function readUserKnobs(dataDir) {
+    return { ...defaults(), ...known(readJson(path.join(dataDir, 'knobs.json'))) };
+}
+
 function readKnobs({ dataDir, cwd, session }) {
     const repo = repoFile(cwd);
-    const knobs = { ...defaults(), ...known(readJson(path.join(dataDir, 'knobs.json'))), ...known(repo ? readJson(repo) : {}) };
+    const knobs = { ...readUserKnobs(dataDir), ...known(repo ? readJson(repo) : {}) };
     const saved = readJson(path.join(dataDir, 'session.json'));
     if (session && saved.session === session && KNOBS.autonomy.values.includes(saved.autonomy)) {
         knobs.autonomy = saved.autonomy;
@@ -305,7 +310,7 @@ function main(argv) {
     return 1;
 }
 
-module.exports = { findChanges, knobLine, readKnobs, saveKnobs };
+module.exports = { findChanges, knobLine, readKnobs, readUserKnobs, saveKnobs };
 
 if (require.main === module) {
     const options = readArgs(process.argv.slice(2));

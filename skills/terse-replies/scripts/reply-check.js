@@ -5,14 +5,13 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { readKnobs } = require('../../work-ethic/scripts/knobs');
-const { flagFile } = require('./terse-reminder');
 
 const CHECKED_LEVELS = ['full', 'ultra'];
 const MAX_ANSWER_LINES = 3;
 const MAX_BULLETS = 5;
 const MAX_GATE_LINES = 12;
 const MAX_WORDS_PER_LINE_AT_ULTRA = 12;
+const TRANSCRIPT_CHUNK_BYTES = 64 * 1024;
 
 const dataDir = process.env.CLAUDE_PLUGIN_DATA || path.join(os.homedir(), '.claude');
 
@@ -174,28 +173,89 @@ function checkCountLabels(plain, findings) {
     }
 }
 
+// Returns whether the entry is a prompt the user typed, which starts a turn. A tool result and a note that
+// Claude Code adds itself with `isMeta` are user entries as well but start none.
 function promptEntry(entry) {
-    if (entry.type !== 'user' || !entry.message) {
+    if (entry.type !== 'user' || entry.isMeta || !entry.message) {
         return false;
     }
 
     const content = entry.message.content;
-    return typeof content === 'string' || (Array.isArray(content) && !content.some((block) => block.type === 'tool_result'));
+    return typeof content === 'string'
+        || (Array.isArray(content) && !content.some((block) => block?.type === 'tool_result'));
 }
 
-// Reads the transcript back to the last typed prompt. Returns null when the transcript doesn't parse.
-function turnUsedTools(transcriptPath) {
-    let entries;
+function toolEntry(entry) {
+    return entry.type === 'assistant'
+        && Array.isArray(entry.message?.content)
+        && entry.message.content.some((block) => block?.type === 'tool_use');
+}
+
+// Yields the lines of a file from the last to the first. It reads the file in chunks from the end, so a caller
+// that stops early never reads the start of a long file. A line is split at the `\n` byte before it is decoded,
+// so a character of several bytes at a chunk border stays whole.
+function* linesFromEnd(file) {
+    const descriptor = fs.openSync(file, 'r');
     try {
-        entries = fs.readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+        let position = fs.fstatSync(descriptor).size;
+        let lineStart = Buffer.alloc(0);
+        while (position > 0) {
+            const size = Math.min(TRANSCRIPT_CHUNK_BYTES, position);
+            position -= size;
+            const chunk = Buffer.alloc(size);
+            fs.readSync(descriptor, chunk, 0, size, position);
+
+            const data = Buffer.concat([chunk, lineStart]);
+            let end = data.length;
+            while (end > 0) {
+                const newline = data.lastIndexOf(0x0a, end - 1);
+                if (newline < 0) {
+                    break;
+                }
+
+                yield data.toString('utf8', newline + 1, end);
+                end = newline;
+            }
+
+            lineStart = data.subarray(0, end);
+        }
+
+        yield lineStart.toString('utf8');
+    } finally {
+        fs.closeSync(descriptor);
+    }
+}
+
+// Reads the transcript back from its end to the last typed prompt, so the time doesn't grow with the session.
+// It skips a line that doesn't parse, like a last line that is only half written. Returns null when the file
+// can't be read.
+function turnUsedTools(transcriptPath) {
+    try {
+        for (const line of linesFromEnd(transcriptPath)) {
+            let entry;
+            try {
+                entry = JSON.parse(line);
+            } catch {
+                continue;
+            }
+
+            if (!entry || typeof entry !== 'object') {
+                continue;
+            }
+
+            if (toolEntry(entry)) {
+                return true;
+            }
+
+            if (promptEntry(entry)) {
+                return false;
+            }
+        }
+
+        return false;
     } catch {
         return null;
     }
-
-    const start = entries.map(promptEntry).lastIndexOf(true);
-    return entries.slice(start + 1).some((entry) => entry.type === 'assistant'
-        && Array.isArray(entry.message?.content)
-        && entry.message.content.some((block) => block.type === 'tool_use'));
 }
 
 // Logs a missing close after a turn that used tools. The skill only has a close when work is pending, which the
@@ -221,8 +281,13 @@ function soft(rule, detail) {
     return { rule, kind: 'soft', detail };
 }
 
+// The terse level is only ever saved in the user file, so the check reads it without the repo lookup. That lookup
+// would start git at the end of every turn. The other scripts are loaded inside the functions and not at the top
+// of the file, so a load error ends in the `catch` of the caller.
 function check(event) {
-    const level = readKnobs({ dataDir, cwd: event.cwd || process.cwd() }).terse;
+    const { readUserKnobs } = require('../../work-ethic/scripts/knobs');
+    const { flagFile } = require('./terse-reminder');
+    const level = readUserKnobs(dataDir).terse;
     const message = event.last_assistant_message;
     if (!CHECKED_LEVELS.includes(level) || typeof message !== 'string' || !message.trim()) {
         return [];
@@ -251,6 +316,8 @@ function log(findings, event) {
         return;
     }
 
+    const { flagFile } = require('./terse-reminder');
+
     const record = { time: new Date().toISOString(), check: 'reply', session_id: event.session_id, cwd: event.cwd };
     const lines = findings.map((finding) => JSON.stringify({ ...record, ...finding }) + '\n');
     fs.mkdirSync(dataDir, { recursive: true });
@@ -264,6 +331,7 @@ function log(findings, event) {
 }
 
 let input = '';
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
     try {
