@@ -1,6 +1,6 @@
 # Review checklist
 
-The reviewer works through every item against the full diff and returns a verdict line plus a table of severity, location, finding and the input that shows it. Each item is a defect class an external review has caught before.
+The reviewer works through every item against the full diff and returns a verdict line plus a table of severity, location, finding and the input that shows it. Each item is a defect class an external review has caught before. Every finding that offers a smaller way gives 2 numbers: the lines in the diff and the lines the other way takes.
 
 ## Claims
 
@@ -31,11 +31,26 @@ The reviewer works through every item against the full diff and returns a verdic
 - Warning and path greps match how tools print paths on this host (backslashes on Windows), or totals are compared against the base.
 - The end-to-end run ran the changed code (fresh build, right target dir, right binary).
 
+## Design
+
+- Every new type, member and option has a caller in the diff or in the slice plan. Public API and planned members stay.
+- A wrapper, helper or type with 1 caller and no job of its own goes. Point at the caller it folds into.
+- Names and parameter lists follow section 2 of `<skills>/code-comments/SKILL.md`: role names, parameters grouped by concept, the object passed instead of a value it has and neutral names in generic code. A name from another role, like `client` for a server object, is a finding. Give the name it should have.
+- Each case gets its own small type instead of a value widened to `object`, `any` or an untyped function field so 2 cases fit 1 slot.
+- When 1 function branches per case and a 2nd case exists, like a 2nd file format, say which small interface each case could implement instead. Don't ask for it when there's only 1 case.
+- Code ported from somewhere else gets reshaped for this codebase. A member-for-member copy that brings the old helpers and hacks along is a finding.
+
+## Reuse
+
+- Code in the repo that already does the job or most of it, with its location.
+- A maintained package, the standard library, a standard file format or an existing tool that does what the diff writes by hand. A hand-written parser for a format the standard library reads is a finding.
+- A large dependency pulled in for a few lines of code.
+- Reuse that only pays off once a 2nd caller exists waits for that caller. Mention it in 1 line as a `nit`.
+
 ## Shape
 
 - Format and lint with CI's exact commands. Line length from the repo's config.
-- Magic numbers, duplicated code, needless indirection, file and function size, names that misdescribe.
-- Members with no caller and no planned consumer. Public API and planned members stay.
+- Magic numbers, duplicated code, file and function size.
 - Nothing in the diff the issue never mentioned.
 
 ## Prose

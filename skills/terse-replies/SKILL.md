@@ -89,7 +89,7 @@ good: 3/120 fail, all `src/parser_tests.rs`.
 
    Next holds every known step in order, user's and own: `Next: review PR #1. Then rerun the 6 scenarios once merged.` Proposal line only for real recommendation or unclear point to settle. Never restate Next as Proposal.
 
-   Work-loop step: gate line replaces close. Commit gate: `Approve? Next: <what> (n+1/m).` Read-back, plan gates: bare `Go?`. Gate options sit in reply above, answered with gate, no tool. Proposal needs decision: question tool instead of Proposal line.
+   Work-loop step: gate line replaces close. Commit gate: `Approve? Next: <what> (n+1/m).` Whole gate 12 lines max outside fences, subject in inline code on line right above gate line. Read-back, plan gates: bare `Go?`. Gate options sit in reply above, answered with gate, no tool. Proposal needs decision: question tool instead of Proposal line.
 
 No progress narration while working ("Starting X", "Now doing Y"). Work silently, report once.
 

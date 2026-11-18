@@ -13,8 +13,8 @@ Use these in repos with no precedent of their own. A repo's existing style and i
 - Prefer built-in language and library features and established packages over hand-rolled code, with the same approach across sibling tools.
 - One implementation per concept. Code sits in the layer that owns its concern. Engine-agnostic code goes in shared modules.
 - `null` means absence everywhere. Invalid combinations should be impossible to build. State is immutable unless it really has to change.
-- Logs are terse and technical, trace logs go everywhere behind a level check, each event logs once. An expected exit doesn't log.
-- Error messages read like the platform's own: short ("Requires X version Y or later."), values in single quotes, nothing the output already shows. No custom teaching messages where the platform's error is clear.
+- Trace logs go everywhere behind a level check. An expected exit doesn't log.
+- Error messages put values in single quotes. Where the platform's own error is clear, the code lets it through instead of writing its own.
 - No member without a caller today or a planned one, but public API and planned members stay.
 
 ## C#
@@ -24,6 +24,7 @@ Use these in repos with no precedent of their own. A repo's existing style and i
 - Member order goes `const`, then `static`, then instance. `readonly` comes before mutable, public before private, and the kinds go fields, constructors, properties, indexers, methods. Test helpers sit at the top of the test class.
 - Empty bodies on the declaring line (`: this(...) { }`, `catch (X) { }`). No blank line between a `get` body and its `set`. Braces on switch case bodies. Trailing commas in multi-line lists.
 - Primary constructors instead of fields that copy a parameter. `required` instead of a marker attribute. `params ReadOnlySpan<T>` where it saves allocations. Extension methods on the relevant type instead of static helper classes, in a class with the `Extensions` suffix. Flag enums for options that combine.
+- Text that users read, like messages and command help, goes in a `.resx` file with a generated class, so every message is in 1 place and can be translated.
 - Failures through typed results with one named factory per case (`ConfigError.MissingKey(name, section)`), never a bare error string.
 - Positive guard for a single call: `if (x?.Flag is true) { x.Call(); }`.
 - Doc comments in the BCL voice: "Represents..." or "Provides..." on types, "Initializes a new instance of the <see cref="X"/> class." on constructors, "Gets..." or "Gets or sets..." on properties, "Gets a value indicating whether..." on booleans, a verb on methods.

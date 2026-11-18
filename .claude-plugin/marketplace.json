@@ -16,7 +16,10 @@
       "license": "0BSD",
       "skills": [
         "./skills/repo-writing"
-      ]
+      ],
+      "experimental": {
+        "evals": "evals/repo-writing"
+      }
     },
     {
       "name": "code-comments",
@@ -26,7 +29,10 @@
       "license": "0BSD",
       "skills": [
         "./skills/code-comments"
-      ]
+      ],
+      "experimental": {
+        "evals": "evals/code-comments"
+      }
     },
     {
       "name": "terse-replies",
@@ -38,28 +44,8 @@
         "./skills/terse-replies"
       ],
       "outputStyles": "./skills/terse-replies/output-styles/terse.md",
-      "hooks": {
-        "UserPromptSubmit": [
-          {
-            "hooks": [
-              {
-                "type": "command",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/terse-hook.js\" prompt"
-              }
-            ]
-          }
-        ],
-        "SessionStart": [
-          {
-            "matcher": "startup|resume|clear|compact",
-            "hooks": [
-              {
-                "type": "command",
-                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/terse-hook.js\" session"
-              }
-            ]
-          }
-        ]
+      "experimental": {
+        "evals": "evals/terse-replies"
       }
     },
     {
@@ -70,7 +56,95 @@
       "license": "0BSD",
       "skills": [
         "./skills/work-loop"
-      ]
+      ],
+      "workflows": "./skills/work-loop/workflows",
+      "agents": [
+        "./skills/work-loop/agents/stage-adversarial.md",
+        "./skills/work-loop/agents/stage-docs.md",
+        "./skills/work-loop/agents/stage-fix.md",
+        "./skills/work-loop/agents/stage-implement.md",
+        "./skills/work-loop/agents/stage-plan.md",
+        "./skills/work-loop/agents/stage-red.md",
+        "./skills/work-loop/agents/stage-review.md",
+        "./skills/work-loop/agents/stage-simplify.md",
+        "./skills/work-loop/agents/stage-style.md"
+      ],
+      "experimental": {
+        "evals": "evals/work-loop"
+      }
+    },
+    {
+      "name": "work-ethic",
+      "description": "Keeps the knobs of the 4 skills, like the loop level and the terse level, and says which skill covers what and what to reload after a compaction.",
+      "source": "./",
+      "strict": false,
+      "license": "0BSD",
+      "dependencies": [
+        "repo-writing",
+        "code-comments",
+        "terse-replies",
+        "work-loop"
+      ],
+      "skills": [
+        "./skills/work-ethic"
+      ],
+      "experimental": {
+        "evals": "evals/work-ethic"
+      },
+      "hooks": {
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-ethic/scripts/knobs.js\" prompt"
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-ethic/scripts/knobs.js\" session"
+              }
+            ]
+          }
+        ],
+        "Stop": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/terse-replies/scripts/reply-check.js\""
+              }
+            ]
+          }
+        ],
+        "PreToolUse": [
+          {
+            "matcher": "Bash",
+            "hooks": [
+              {
+                "type": "command",
+                "if": "Bash(git *)",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-loop/scripts/commit-guard.js\""
+              }
+            ]
+          },
+          {
+            "matcher": "PowerShell",
+            "hooks": [
+              {
+                "type": "command",
+                "if": "PowerShell(git *)",
+                "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/work-loop/scripts/commit-guard.js\""
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

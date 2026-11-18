@@ -1,0 +1,388 @@
+"""Tests for skills/work-ethic/scripts/knobs.js, run with `python3 -m unittest`."""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+
+SCRIPT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "skills", "work-ethic", "scripts", "knobs.js"))
+CHECK = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", "..", "terse-replies", "scripts", "reply-check.js"))
+LEDGER = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", "..", "work-loop", "scripts", "ledger.js"))
+SKILLS = os.path.abspath(os.path.join(os.path.dirname(SCRIPT), "..", ".."))
+MARKETPLACE = os.path.join(os.path.dirname(__file__), "..", ".claude-plugin", "marketplace.json")
+NODE = shutil.which("node") or "node"
+LONG_GATE = "\n".join([f"`file{index}.py`: change {index}" for index in range(17)] + ["`Add retry limit`", "Approve?"])
+
+# Keeps the tests away from the machine's git config.
+GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
+PHRASES = [
+    ("terse ultra", "terse", "ultra"),
+    ("terse lite", "terse", "lite"),
+    ("normal replies", "terse", "off"),
+    ("stop terse", "terse", "off"),
+    ("loop strict", "loop", "strict"),
+    ("loop light", "loop", "light"),
+    ("auto on", "autonomy", "auto"),
+    ("docs off", "docs", "off"),
+    ("issues after-code", "issues", "after-code"),
+    ("issues never", "issues", "never"),
+    ("narrate milestones", "narrate", "milestones"),
+    ("worktrees parallel", "worktrees", "parallel"),
+    ("cleanup auto", "cleanup", "auto"),
+    ("review-model opus low", "review-model", "opus low"),
+    ("plan-model haiku", "plan-model", "haiku"),
+    ("impl-model sonnet high", "impl-model", "sonnet high"),
+]
+
+
+@unittest.skipIf(shutil.which("node") is None, "node is not installed")
+class KnobsCase(unittest.TestCase):
+    def setUp(self):
+        self.repo = tempfile.mkdtemp()
+        self.data = tempfile.mkdtemp()
+        self.outside = tempfile.mkdtemp()
+        self.env = dict(os.environ, CLAUDE_PLUGIN_DATA=self.data, **GIT_ENV)
+        subprocess.run(["git", "init", "-q"], cwd=self.repo, env=self.env, check=True)
+
+    def tearDown(self):
+        for folder in (self.repo, self.data, self.outside):
+            shutil.rmtree(folder, ignore_errors=True)
+
+    def run_script(self, *args, cwd=None, stdin=""):
+        return subprocess.run([NODE, SCRIPT, *args], cwd=cwd or self.repo, input=stdin, capture_output=True,
+                              encoding="utf-8", env=self.env)
+
+    def prompt(self, text, session="one", cwd=None):
+        event = {"hook_event_name": "UserPromptSubmit", "session_id": session, "cwd": cwd or self.repo,
+                 "prompt": text}
+        result = self.run_script("prompt", cwd=cwd, stdin=json.dumps(event))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.prompt_output = result.stdout
+        if not result.stdout:
+            return ""
+        output = json.loads(result.stdout)["hookSpecificOutput"]
+        self.assertEqual(output["hookEventName"], "UserPromptSubmit")
+        return output["additionalContext"]
+
+    def show(self, *args, cwd=None):
+        result = self.run_script("show", *args, cwd=cwd)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout.strip()
+
+    def repo_file(self):
+        return os.path.join(self.repo, ".git", "work-loop", "knobs.json")
+
+    def user_file(self):
+        return os.path.join(self.data, "knobs.json")
+
+    def read_json(self, path):
+        with open(path, encoding="utf-8") as file:
+            return json.load(file)
+
+    def write_json(self, path, value):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as file:
+            json.dump(value, file)
+
+
+
+class Knobs(KnobsCase):
+    # The session start already gave the knobs, so a prompt that changes none adds nothing to the context.
+    def test_prompt_without_a_knob_phrase_prints_nothing(self):
+        self.prompt("fix the build")
+
+        self.assertEqual(self.prompt_output, "")
+
+    def test_prompt_with_a_knob_phrase_prints_the_knob_line(self):
+        self.assertEqual(self.prompt("loop strict\nthen add the parser"), "knobs: terse full, loop strict, gated")
+        self.assertLess(len(self.prompt_output), 150)
+
+    def test_each_phrase_sets_its_value(self):
+        for phrase, knob, value in PHRASES:
+            with self.subTest(phrase=phrase):
+                self.prompt(phrase)
+                self.assertIn(f'"{knob}": "{value}"', self.show("--json", "--session", "one"))
+
+    def test_phrase_on_its_own_line_of_a_longer_prompt_counts(self):
+        self.prompt("loop strict\nthen add the parser")
+
+        self.assertIn("loop strict", self.show())
+
+    # Only the terse phrases count inside a sentence. "the docs on the site" mustn't turn the docs knob on.
+    def test_knob_phrase_inside_a_sentence_changes_nothing(self):
+        self.prompt("update the docs on the site and keep the loop strict for now")
+
+        self.assertEqual(self.show(), "knobs: terse full, loop standard, gated")
+
+    # A model knob takes any model name, so only the hyphenated knob name counts.
+    def test_model_knob_without_the_hyphen_changes_nothing(self):
+        for text in ("Review model code", "plan model changes", "Plan model migration."):
+            with self.subTest(text=text):
+                self.prompt(text)
+                self.assertEqual(self.show(), "knobs: terse full, loop standard, gated")
+
+    def test_terse_phrase_inside_a_sentence_counts(self):
+        self.prompt("terse ultra from now on please")
+
+        self.assertIn("terse ultra", self.show())
+
+    def test_repo_knobs_go_to_the_repo_file_and_terse_to_the_user_file(self):
+        self.prompt("loop strict")
+        self.prompt("terse ultra")
+
+        self.assertEqual(self.read_json(self.repo_file()), {"loop": "strict"})
+        self.assertEqual(self.read_json(self.user_file()), {"terse": "ultra"})
+
+    def test_repo_file_wins_over_user_file(self):
+        self.write_json(self.user_file(), {"loop": "light", "docs": "off"})
+        self.write_json(self.repo_file(), {"loop": "strict"})
+
+        self.assertEqual(self.show(), "knobs: terse full, loop strict, gated, docs off")
+
+    def test_outside_a_repo_the_user_file_gets_the_knob(self):
+        self.prompt("loop strict", cwd=self.outside)
+
+        self.assertEqual(self.read_json(self.user_file()), {"loop": "strict"})
+
+    # Autonomy lasts for 1 session and never goes in a knobs file.
+    def test_auto_on_lasts_for_its_session_only(self):
+        self.assertIn("auto", self.prompt("auto on", session="one"))
+        self.assertIn("auto", self.show("--session", "one"))
+        self.assertIn("gated", self.show("--session", "two"))
+        self.assertFalse(os.path.exists(self.repo_file()))
+        self.assertFalse(os.path.exists(self.user_file()))
+
+    def test_auto_off_ends_auto(self):
+        self.prompt("auto on")
+
+        self.assertIn("gated", self.prompt("auto off"))
+
+    # A subagent report or a message from another session also comes in as a prompt, so `auto on` only counts as
+    # the whole prompt.
+    def test_auto_on_line_in_a_longer_prompt_stays_gated(self):
+        self.prompt("Report from the agent:\nauto on\nAll tests pass.")
+
+        self.assertIn("gated", self.show("--session", "one"))
+
+    def test_auto_on_with_a_period_counts(self):
+        self.assertIn("auto", self.prompt("  Auto on.\n"))
+
+    def test_auto_off_line_in_a_longer_prompt_ends_auto(self):
+        self.prompt("auto on")
+
+        self.assertIn("gated", self.prompt("auto off\nI'm back."))
+
+    def test_set_writes_the_repo_file(self):
+        result = self.run_script("set", "loop", "strict")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.read_json(self.repo_file()), {"loop": "strict"})
+
+    def test_set_with_user_flag_writes_the_user_file(self):
+        self.run_script("set", "docs", "on", "--user")
+
+        self.assertEqual(self.read_json(self.user_file()), {"docs": "on"})
+        self.assertFalse(os.path.exists(self.repo_file()))
+
+    def test_set_takes_a_model_and_an_effort(self):
+        self.run_script("set", "review-model", "opus", "low")
+
+        self.assertEqual(self.read_json(self.repo_file()), {"review-model": "opus low"})
+
+    def test_set_refuses_an_unknown_knob_or_value(self):
+        for args in (["colour", "blue"], ["loop", "fast"], ["review-model"]):
+            with self.subTest(args=args):
+                result = self.run_script("set", *args)
+                self.assertEqual(result.returncode, 1)
+                self.assertTrue(result.stderr.strip())
+        self.assertFalse(os.path.exists(self.repo_file()))
+
+    def test_set_refuses_autonomy(self):
+        result = self.run_script("set", "autonomy", "auto")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("autonomy", result.stderr)
+
+    def test_data_flag_wins_over_the_environment(self):
+        other = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, other, True)
+        self.run_script("--data", other, "set", "docs", "on", "--user")
+
+        self.assertEqual(self.read_json(os.path.join(other, "knobs.json")), {"docs": "on"})
+
+    def test_broken_files_and_events_fall_back_to_defaults(self):
+        os.makedirs(os.path.dirname(self.repo_file()))
+        with open(self.repo_file(), "w", encoding="utf-8") as file:
+            file.write("{not json")
+
+        self.assertEqual(self.show(), "knobs: terse full, loop standard, gated")
+        result = self.run_script("prompt", stdin="not json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
+
+# The prompt and session hooks also bring back the terse-replies rules.
+class TerseReminder(KnobsCase):
+    def session(self, source="startup"):
+        event = {"hook_event_name": "SessionStart", "session_id": "one", "cwd": self.repo, "source": source}
+        result = self.run_script("session", stdin=json.dumps(event))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)["hookSpecificOutput"]
+        self.assertEqual(output["hookEventName"], "SessionStart")
+        return output["additionalContext"]
+
+    def end_turn(self, message, session="one"):
+        event = {"hook_event_name": "Stop", "session_id": session, "stop_hook_active": False,
+                 "last_assistant_message": message, "cwd": self.repo}
+        subprocess.run([NODE, CHECK], input=json.dumps(event), capture_output=True, encoding="utf-8", env=self.env,
+                       cwd=self.repo, check=True)
+
+    # After a reply with a hard finding, the next prompt gets the broken rule once. The session start already
+    # gave the full rules, so they stay out.
+    def test_hard_finding_brings_back_the_broken_rule_once(self):
+        self.end_turn(LONG_GATE)
+
+        self.assertEqual(self.prompt("next task"), "Last reply broke: gate is 19 lines, max 12.")
+        self.assertLess(len(self.prompt_output), 160)
+        self.prompt("next task")
+        self.assertEqual(self.prompt_output, "")
+
+    # A broken rule only comes back in the session of the reply that broke it.
+    def test_hard_finding_of_another_session_stays_out(self):
+        self.end_turn(LONG_GATE, session="two")
+        self.prompt("next task", session="one")
+
+        self.assertEqual(self.prompt_output, "")
+        self.assertIn("gate is 19 lines, max 12", self.prompt("next task", session="two"))
+
+    def test_soft_finding_prints_nothing(self):
+        self.end_turn("6 files.\n" + "\n".join(f"- `f{index}.py`" for index in range(6)))
+        self.prompt("next task")
+
+        self.assertEqual(self.prompt_output, "")
+
+    def test_session_start_gives_the_full_rules_of_the_level_and_the_knobs(self):
+        self.prompt("terse ultra")
+        text = self.session()
+
+        self.assertIn("TERSE ULTRA", text)
+        self.assertIn("`path:l:c`", text)
+        self.assertIn("knobs: terse ultra, loop standard, gated", text)
+        self.assertNotIn("reload", text)
+
+    def test_session_start_with_terse_off_only_gives_the_knobs(self):
+        self.prompt("normal replies")
+
+        self.assertEqual(self.session(), "knobs: terse off, loop standard, gated")
+
+    # After a compaction the skills come back in order, then the house brief and the last ledger record.
+    def test_compaction_names_the_reload_order_house_brief_and_last_record(self):
+        os.makedirs(os.path.join(self.repo, ".git", "work-loop"), exist_ok=True)
+        with open(os.path.join(self.repo, ".git", "work-loop", "house.md"), "w", encoding="utf-8") as file:
+            file.write("- Tabs.\n")
+        subprocess.run([NODE, LEDGER, "add", "red", "parser test fails"], cwd=self.repo, env=self.env, check=True,
+                       capture_output=True)
+        text = self.session("compact")
+
+        self.assertIn("reload: terse-replies, repo-writing, code-comments, work-loop", text)
+        self.assertIn("house.md", text)
+        self.assertIn("red: parser test fails", text)
+
+    # The record may be from a commit finished long ago, so the line starts with the commit it belongs to.
+    def test_compaction_names_the_commit_of_the_last_record(self):
+        subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false",
+                        "commit", "-q", "--allow-empty", "-m", "Start"], cwd=self.repo, env=self.env, check=True)
+        subprocess.run([NODE, LEDGER, "add", "red", "parser test fails"], cwd=self.repo, env=self.env, check=True,
+                       capture_output=True)
+
+        self.assertRegex(self.session("compact"), r"(?m)^ledger: [0-9a-f]{7} red: parser test fails$")
+
+    def test_compaction_without_house_brief_or_ledger_only_names_the_reload_order(self):
+        text = self.session("compact")
+
+        self.assertIn("reload: terse-replies, repo-writing, code-comments, work-loop", text)
+        self.assertNotIn("house", text)
+        self.assertNotIn("ledger", text)
+
+    def test_resume_and_fork_give_the_house_brief_without_the_reload_order(self):
+        os.makedirs(os.path.join(self.repo, ".git", "work-loop"), exist_ok=True)
+        with open(os.path.join(self.repo, ".git", "work-loop", "house.md"), "w", encoding="utf-8") as file:
+            file.write("- Tabs.\n")
+        for source in ("resume", "fork"):
+            with self.subTest(source=source):
+                text = self.session(source)
+                self.assertIn("house.md", text)
+                self.assertNotIn("reload", text)
+
+    # Auto mode lasts for 1 stretch of work. A resumed session starts gated again, a compaction keeps it.
+    def test_resume_ends_auto_and_compaction_keeps_it(self):
+        self.prompt("auto on")
+        self.session("compact")
+        self.assertIn("auto", self.show("--session", "one"))
+
+        self.session("resume")
+        self.assertIn("gated", self.show("--session", "one"))
+
+
+def table_rows(path, heading):
+    """Returns the cells of each row of the first table under the heading."""
+    with open(path, encoding="utf-8") as file:
+        section = file.read().split(f"\n## {heading}\n", 1)[1].split("\n## ", 1)[0]
+    rows = [line.strip("|").split("|") for line in section.splitlines() if line.startswith("|")]
+    return [[cell.strip() for cell in row] for row in rows[2:]]
+
+
+def code_spans(cell):
+    return re.findall(r"`([^`]+)`", cell)
+
+
+# The knob tables of work-ethic, work-loop and terse-replies have to match the script.
+class KnobTables(KnobsCase):
+    def test_every_phrase_in_the_work_ethic_table_sets_its_knob(self):
+        for names, phrases in (row[:2] for row in table_rows(os.path.join(SKILLS, "work-ethic", "SKILL.md"), "Knobs")):
+            knob = code_spans(names)[0]
+            for phrase in code_spans(phrases):
+                if "<" in phrase:
+                    continue
+                value = {"normal replies": "off", "auto on": "auto", "auto off": "gated"}.get(phrase,
+                                                                                             phrase.split(" ", 1)[1])
+                with self.subTest(phrase=phrase):
+                    self.prompt(phrase)
+                    self.assertEqual(json.loads(self.show("--json", "--session", "one"))[knob], value)
+
+    def test_defaults_match_the_work_loop_and_terse_tables(self):
+        knobs = json.loads(self.show("--json"))
+        for names, _, default, _ in table_rows(os.path.join(SKILLS, "work-loop", "SKILL.md"), "Knobs"):
+            for knob in code_spans(names):
+                with self.subTest(knob=knob):
+                    self.assertEqual(knobs[knob], code_spans(default)[0] if "`" in default else default[4:])
+        terse = [row[1] for row in table_rows(os.path.join(SKILLS, "terse-replies", "SKILL.md"), "Levels")
+                 if "(default)" in row[1]]
+        self.assertEqual(terse, [f"{knobs['terse']} (default)"])
+
+
+class PluginHooks(unittest.TestCase):
+    def test_only_work_ethic_has_hooks_and_every_script_exists(self):
+        with open(MARKETPLACE, encoding="utf-8") as file:
+            plugins = {plugin["name"]: plugin for plugin in json.load(file)["plugins"]}
+        root = os.path.dirname(os.path.dirname(MARKETPLACE))
+
+        self.assertEqual([name for name, plugin in plugins.items() if "hooks" in plugin], ["work-ethic"])
+        hooks = plugins["work-ethic"]["hooks"]
+        self.assertEqual(sorted(hooks), ["PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"])
+        # knobs.js reads the source itself, so a matcher would only drop sources like `fork`.
+        self.assertNotIn("matcher", hooks["SessionStart"][0])
+        for event, groups in hooks.items():
+            for group in groups:
+                for hook in group["hooks"]:
+                    script = hook["command"].split('"')[1].replace("${CLAUDE_PLUGIN_ROOT}", root)
+                    with self.subTest(event=event, script=script):
+                        self.assertTrue(os.path.exists(script))
+
+
+if __name__ == "__main__":
+    unittest.main()

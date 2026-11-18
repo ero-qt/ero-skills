@@ -5,13 +5,21 @@ Usage:
     python prose_check.py --text "add tick provider"
     python prose_check.py --staged                check added lines of the staged diff
     python prose_check.py < draft.md              check stdin
+    python prose_check.py --explain "triad"       print why a rule flags and the fix
 
 Each finding prints as `where:line: kind: rule: excerpt`. A `hard` finding breaks a
 rule with no exceptions (dashes, trailers, curly quotes, NUL bytes) and makes the
 exit code 1. A `check` finding needs a human look, since a regex can't tell a verb
 from a noun or a real list from a comma chain.
+
+A 2nd pass reads whole paragraphs and the whole text for rhythm: sentence lengths,
+openers, a verb used over and over. Every file and stdin also get a line like
+`draft.md: tells: 7 in 310 words, 2.3 per 100`. Read a text again when it's above
+1 per 100. The flags follow the habits of today's models and change with them, so
+a clean run proves nothing. A person still reads anything longer than a subject.
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -26,6 +34,8 @@ HARD = [
 CHECK = [
     ("'name' as a verb", re.compile(r"\b(names|named|naming)\b|\bname (the|a|an|its|one|each|every|both|them|it)\b", re.I)),
     ("'says' for code or output", re.compile(r"\b(says|saying)\b|\bsays so\b", re.I)),
+    ("clipped negation", re.compile(
+        r"\b(has|have|had|finds?|found|returns?|allocates?) (no|nothing)\b|\bno other\b", re.I)),
     ("'lands'", re.compile(r"\b(lands?|landed|landing)\b", re.I)),
     ("'hold' or 'held'", re.compile(r"\b(hold|holds|held|holding)\b", re.I)),
     ("'carry'", re.compile(r"\b(carry|carries|carried|carrying)\b", re.I)),
@@ -38,11 +48,53 @@ CHECK = [
     ("validation", re.compile(r"\byou'?re (absolutely )?right\b", re.I)),
     ("framing phrase", re.compile(
         r"\bnote that\b|\bworth (noting|mentioning)\b|\bit'?s worth\b|\bone trap\b|\bnext up\b|"
-        r"\bcoming soon\b|\btests? cover\b|\blet'?s dive\b|\bhere'?s the thing\b", re.I)),
+        r"\bcoming soon\b|\btests? cover\b|\blet'?s dive\b|\bhere'?s the thing\b|\bimportantly\b|"
+        r"\bin summary\b|\bto summari[sz]e\b|\bit'?s important to\b", re.I)),
+    ("copula dodge", re.compile(r"\b(serves?|served|acts?|acted|functions?) as (a|an|the)\b|\bboasts?\b", re.I)),
+    ("participle tail", re.compile(
+        r", (ensuring|allowing|enabling|making|highlighting|reflecting|providing|leaving)\b", re.I)),
+    ("contrast frame", re.compile(
+        r"\bnot (just|only|merely) [^.]{1,60}\bbut\b|\b(isn'?t|is not|aren'?t|wasn'?t)\b[^.]{1,60}, "
+        r"(it'?s|it is|they'?re)\b|\brather than\b", re.I)),
+    # 3 lowercase words that end the clause, because a list of names like "Linux, Mac and Windows" or of
+    # longer items like "the config, the cache and the log" is a real list.
+    ("triad", re.compile(r"\b[a-z]+, [a-z]+,? (and|or) [a-z]+(?=[.,;:!?)]|$)")),
+    ("fronted clause", re.compile(
+        r"(^|[.!?] )\s*([-*] )?(Because|Since|While|Although|Given|With|By \w+ing)\b|(^|[.!?] )``,? is an?\b")),
+    ("colon setup", re.compile(
+        r"^(?!(Usage|Note|Example|Examples|Title|Body|Before|After|Bad|Good|Rejected|Written instead|Fix|Tip|"
+        r"Warning|Important|Default|Output|Input|Source|Sources):)[A-Z][^.:`]{3,40}: [a-z]")),
+    ("nominalization", re.compile(
+        r"\b(perform|provide|make|do|give|offer)(s|ed|ing)? (a |an |the )?\w+(tion|ment|ance|ence|sion)\b|"
+        r"\bprovides? support for\b", re.I)),
+    ("formal connective", re.compile(
+        r"(^|[.!?] )\s*([-*] )?(Moreover|Additionally|Furthermore|Consequently|Notably|Thus|Hence)\b")),
+    ("significance claim", re.compile(
+        r"\bplays? an? (key|important|crucial|vital|central|major) role\b|\bpain points?\b|"
+        r"\bcommon (source of|pitfall)\b", re.I)),
+    ("announcing intro", re.compile(
+        r"\bthere are \d+ (things|steps|parts|ways|reasons)\b|"
+        r"\bthis (section|document|page|guide|PR|change) (covers|describes|explains|walks)\b", re.I)),
+    ("teaching tone", re.compile(r"\bplease (ensure|make sure|note|remember)\b|\bensure that\b", re.I)),
     ("'here' for the user's machine", re.compile(
         r"\b(run|runs|ran|installed|works?|worked|built|build|test(ed)?) (it |them )?here\b|\bthis machine\b", re.I)),
     ("history word", re.compile(r"\b(previously|used to|no longer|anymore)\b", re.I)),
-    ("comma before 'and' or 'or'", re.compile(r", (and|or)\b")),
+    # A list keeps its ", and" before the last item. Only a 2nd clause with its own subject and verb counts.
+    ("clause after ', and'", re.compile(
+        r", and (?:(?:that|it|there|here|he|she)'s|(?:they|we|you)'re|"
+        r"(?:(?:the|a|an|this|that|these|those|its|their|our|my|your|each|every|another|no|all|both|some) (?:(?!(?:of|in|for|per|on|from|to|with|by|and|or) )[\w'-]+ ){1,4}?|"
+        r"(?:it|they|we|i|you|he|she|that|this|there|nothing|everything|nobody) |"
+        r"(?:``|#\d+|[A-Z][\w.]*)(?:'s)? (?:[a-z-]+ ){0,2}?)"
+        r"(?:is|are|was|were|has|have|had|does|do|did|can|could|will|would|should|must|may|might|"
+        r"isn't|aren't|wasn't|doesn't|don't|didn't|can't|won't|"
+        r"(?:get|keep|read|write|run|need|take|make|return|stop|start|use|add|show|wait|count|clear|check|come|work|"
+        r"break|change|find|give|call|set|put|send|load|build|throw|fail|print|skip|open|close|pick|drop|stay|turn)s|"
+        r"goes|went|got|kept|wrote|ran|took|made|came|broke|found|gave|sent|built|threw|passes|fixes|"
+        r"(?:fix|fail|pass|add|skip|pick|open|close|start|stop|need|show|wait|count|clear|check|work|print|call|load|"
+        r"return|chang|us|mov|merg|drop)(?:ed|d|ped))\b)", re.I)),
+    ("'one' as a pronoun", re.compile(
+        r"\b(?:the|this|that|which|each|another|with|a|an)(?: [a-z-]+)? ones?"
+        r"(?=[.,;:!?)]|$| (?:that|which|who|with|in|on|for|from|is|are|was|were|has|have|and|or|but)\b)", re.I)),
     ("semicolon in prose", re.compile(r"\w; [A-Za-z]")),
     ("spelled-out number", re.compile(
         r"\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|hundred)\b", re.I)),
@@ -51,6 +103,12 @@ CHECK = [
     # Skips greetings like "Hey!" and "Thanks!", which the user writes on purpose.
     ("exclamation mark", re.compile(r"\w(?<!\bhey)(?<!\bhi)(?<!\bthanks)(?<!\bthank you)!(\s|$)", re.I)),
     ("spaced hyphen used as a dash", re.compile(r"\w - \w")),
+]
+
+# Rules for code comments only, because people do know and want things in prose.
+COMMENT_ONLY = [
+    ("code that talks or thinks", re.compile(r"\b(tells?|asks?|answers?|knows?|wants?|decides?)\b", re.I)),
+    ("'now' in a comment", re.compile(r"\bnow\b", re.I)),
 ]
 
 MARKDOWN = [
@@ -70,6 +128,24 @@ NOT_BRITISH = {"raise", "raised", "raises", "raising", "praise", "praised", "pra
                "supervise", "improvise", "compromise", "disguise", "chastise", "despise", "excise", "incise",
                "poise", "turquoise", "tortoise", "porpoise", "treatise", "merchandise", "anise"}
 
+# Files that quote bad examples on purpose. They only get the hard rules, since every other rule
+# would flag the examples.
+QUOTES_BAD_EXAMPLES = ("SKILL.md", "tells.md")
+TELLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "references", "tells.md")
+
+# Verbs a draft tends to use for every sentence about contents. Each group counts as 1 verb.
+FLAT_VERBS = {
+    "has": ("has", "have"), "contains": ("contains", "contain"), "holds": ("holds", "hold"),
+    "keeps": ("keeps", "keep"), "lists": ("lists",), "shows": ("shows",), "provides": ("provides", "provide"),
+    "includes": ("includes", "include"), "offers": ("offers", "offer"), "uses": ("uses",), "gives": ("gives",),
+    "makes": ("makes",),
+}
+HEDGES = re.compile(r"\b(may|might|could(?! not)|potentially|possibly|perhaps|somewhat|arguably|likely|probably|"
+                    r"generally|typically|in some (cases|setups|situations)|tends? to)\b", re.I)
+REASONS = re.compile(r"\b(because|since|so|which)\b", re.I)
+CLOSERS = re.compile(r"^(This|That|Overall|In short|Ultimately)\b")
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9`\"(\[])")
+
 SLASH = re.compile(r"(?<![:\"'])(?://[/!]?|/\*+|^\s*\*(?!/))\s?(.*)$")
 HASH = re.compile(r"(?<![\w\"'])#(?![\[!])\s?(.*)$")
 DASHES = re.compile(r"(?<![\w-])--\s?(.*)$")
@@ -86,7 +162,7 @@ PROSE_FILES = (".md", ".markdown", ".txt", ".rst")
 
 
 def comment_text(path, line):
-    """Returns the comment part of a code line, or None when the line has no comment."""
+    """Returns the comment part of a code line, or None when the line doesn't have a comment."""
     for pattern, endings in COMMENTS.items():
         if path.endswith(endings):
             match = pattern.search(line)
@@ -100,18 +176,19 @@ def strip_code(line):
     return re.sub(r"https?://\S+", "", line)
 
 
-def check_line(where, number, text, markdown, findings):
-    # Heading sizes only matter in PR, issue and comment bodies, not in files with their own heading format.
-    if markdown and not where.rsplit("/", 1)[-1].upper().startswith(("README", "CHANGELOG", "SKILL")):
-        for rule, pattern in MARKDOWN:
-            if pattern.search(text):
-                findings.append((where, number, "check", rule, text.strip()))
-
+def check_line(where, number, text, markdown, findings, comment=False):
     prose = strip_code(text)
     for rule, pattern in HARD:
         if pattern.search(prose):
             findings.append((where, number, "hard", rule, text.strip()))
-    for rule, pattern in CHECK:
+    if quotes_bad_examples(where):
+        return
+    # Heading sizes only matter in PR, issue and comment bodies, not in files with their own heading format.
+    if markdown and not base_name(where).upper().startswith(("README", "CHANGELOG")):
+        for rule, pattern in MARKDOWN:
+            if pattern.search(text):
+                findings.append((where, number, "check", rule, text.strip()))
+    for rule, pattern in CHECK + (COMMENT_ONLY if comment else []):
         matches = [match.group(0).lower() for match in pattern.finditer(prose)]
         if rule == "British spelling":
             matches = [word for word in matches if word not in NOT_BRITISH]
@@ -149,15 +226,132 @@ class Fence:
         return True
 
 
-def check_text(where, text, markdown, findings):
+def words(text):
+    """Returns the words of a line that went through strip_code, with each code span as 1 word."""
+    return re.findall(r"``|[\w'-]*\w", text)
+
+
+def paragraphs(lines):
+    """Splits (number, line) pairs into paragraphs. A list item is a paragraph of its own.
+
+    Headings, table rows, quotes and HTML comments end a paragraph and aren't part of any.
+    """
+    block = []
+    for number, line in lines:
+        item = re.match(r"\s*(?:[-*+]|\d+[.)]) (.*)$", line)
+        if item or not line.strip() or re.match(r"\s*(#|\||>|<!--)", line):
+            if block:
+                yield block
+            block = [(number, item.group(1))] if item else []
+            continue
+        block.append((number, line))
+    if block:
+        yield block
+
+
+def sentences(block):
+    """Returns (number, sentence) pairs for a paragraph, joining a sentence that wraps onto the next line."""
+    found, current = [], None
+    for number, line in block:
+        for piece in SENTENCE_END.split(strip_code(line).strip()):
+            if not piece:
+                continue
+            current = (current[0], current[1] + " " + piece) if current else (number, piece)
+            if re.search(r"[.!?][\"')\]]*$", piece):
+                found.append(current)
+                current = None
+    if current:
+        found.append(current)
+    return found
+
+
+def check_paragraphs(where, lines, findings, report=None):
+    """Checks the rhythm of each paragraph. Only findings on a line in `report` count, when it's given."""
+    def add(numbers, rule, excerpt):
+        number = next((number for number in numbers if report is None or number in report), None)
+        if number is not None:
+            findings.append((where, number, "check", rule, excerpt.strip()))
+        return number is not None
+
+    for block in paragraphs(lines):
+        found = sentences(block)
+        counts = [len(words(sentence)) for _, sentence in found]
+        # A run of sentences with the same skeleton gets 1 finding, not 1 for each sentence after the 2nd.
+        in_run = False
+        for index, (number, sentence) in enumerate(found):
+            if index and counts[index] <= 4 and counts[index - 1] >= 12 and "``" not in sentence:
+                add([number], "dramatic short sentence", sentence)
+            if counts[index] >= 28 and len(REASONS.findall(sentence)) >= 2:
+                add([number], "decision packed into 1 sentence", sentence)
+            if sum(1 for _ in HEDGES.finditer(sentence)) >= 2:
+                add([number], "hedge stack", sentence)
+            if index >= 2:
+                three = found[index - 2:index + 1]
+                # Every code span turns into ``, so code span openers don't count as the same first word.
+                openers = {words(text)[0].lower() for _, text in three if words(text)}
+                same = (len(openers) == 1 and openers != {"``"}) or all(", and " in text for _, text in three)
+                if not same:
+                    in_run = False
+                elif not in_run:
+                    in_run = add([line for line, _ in three], "same skeleton in a row", sentence)
+        if len(found) >= 2 and CLOSERS.match(found[-1][1]):
+            add([found[-1][0]], "closing restatement", found[-1][1])
+        if len(found) >= 4 and max(counts) - min(counts) < 0.25 * sum(counts) / len(counts):
+            add([number for number, _ in found], "flat sentence length", found[0][1])
+
+
+def check_verbs(where, lines, findings):
+    """Flags a content verb used 4 or more times per 300 words.
+
+    A negated verb ("doesn't have") and "have to" don't count, because they don't state what something contains.
+    """
+    total = sum(len(words(strip_code(line))) for _, line in lines)
+    for verb, forms in FLAT_VERBS.items():
+        pattern = re.compile(r"(?<!n't )(?<!not )\b(" + "|".join(forms) + r")\b(?! to\b)", re.I)
+        hits = [number for number, line in lines for _ in pattern.finditer(strip_code(line))]
+        if len(hits) >= 4 and len(hits) * 300 >= 4 * total:
+            findings.append((where, hits[0], "check", "same verb in many sentences",
+                             f"'{verb}' {len(hits)} times in {total} words"))
+
+
+def base_name(where):
+    """Returns the file name of a path, which can use either kind of slash."""
+    return where.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def quotes_bad_examples(where):
+    return base_name(where) in QUOTES_BAD_EXAMPLES
+
+
+def density(where, lines, findings):
+    """Returns the density line for the findings and words of 1 text, or None when it doesn't have any words.
+
+    The markdown rules are about the layout of a PR or issue body, so they don't count as tells.
+    """
+    total = sum(len(words(strip_code(line))) for _, line in lines)
+    if not total:
+        return None
+    layout = {rule for rule, _ in MARKDOWN}
+    count = sum(1 for finding in findings if finding[0] == where and finding[3] not in layout)
+    return f"{where}: tells: {count} in {total} words, {count * 100 / total:.1f} per 100"
+
+
+def check_text(where, text, markdown, findings, densities=None):
     fence = Fence()
+    lines = []
     for number, line in enumerate(text.splitlines(), 1):
         if fence.skip(line) or "[!" in line:
             continue
         check_line(where, number, line, markdown, findings)
+        lines.append((number, line))
+    if not quotes_bad_examples(where):
+        check_paragraphs(where, lines, findings)
+        check_verbs(where, lines, findings)
+    if densities is not None:
+        densities.append(density(where, lines, findings))
 
 
-def check_staged(findings):
+def check_staged(findings, densities):
     diff = subprocess.run(["git", "diff", "--cached", "-U0", "--no-color"],
                           capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
     added = {}
@@ -180,14 +374,22 @@ def check_staged(findings):
             staged = subprocess.run(["git", "show", f":{path}"], capture_output=True, text=True,
                                     encoding="utf-8", errors="replace").stdout
             fence = Fence()
+            prose = []
             for number, line in enumerate(staged.splitlines(), 1):
-                if not fence.skip(line) and number in lines:
-                    check_line(path, number, line, True, findings)
+                if not fence.skip(line) and "[!" not in line:
+                    prose.append((number, line))
+            added_prose = [(number, line) for number, line in prose if number in lines]
+            for number, line in added_prose:
+                check_line(path, number, line, True, findings)
+            if not quotes_bad_examples(path):
+                check_paragraphs(path, prose, findings, set(lines))
+                check_verbs(path, added_prose, findings)
+            densities.append(density(path, added_prose, findings))
         else:
             for number, line in lines.items():
                 comment = comment_text(path, line)
                 if comment:
-                    check_line(path, number, comment, False, findings)
+                    check_line(path, number, comment, False, findings, comment=True)
 
     names = subprocess.run(["git", "diff", "--cached", "--name-only", "-z"],
                            capture_output=True).stdout.split(b"\0")
@@ -199,26 +401,54 @@ def check_staged(findings):
                 findings.append((name.decode(errors="replace"), 0, "hard", "NUL byte in a text file", ""))
 
 
+def explain(rule):
+    """Returns the row of a rule in tells.md as `label: value` lines, or None when tells.md doesn't list the rule.
+
+    A row lists the rules that flag it in backticks in its last column.
+    """
+    with open(TELLS, encoding="utf-8") as file:
+        level, header = None, None
+        for line in file:
+            if line.startswith("## "):
+                level, header = line[3:].strip(), None
+            elif not line.startswith("|"):
+                header = None
+            elif header is None:
+                header = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            elif not set(line.strip()) <= set("|-: "):
+                cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+                if f"`{rule}`" in cells[-1]:
+                    return "\n".join([f"Level: {level}"] + [f"{name}: {cell}" for name, cell in zip(header, cells)])
+    return None
+
+
 def main(args):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")
-    findings = []
+    findings, densities = [], []
     if not args:
-        check_text("<stdin>", sys.stdin.read(), True, findings)
+        check_text("<stdin>", sys.stdin.read(), True, findings, densities)
     elif args[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
+    elif args[0] == "--explain":
+        rule = " ".join(args[1:])
+        row = explain(rule)
+        print(row or f"tells.md doesn't list a rule called '{rule}'")
+        return 0 if row else 1
     elif args[0] == "--staged":
-        check_staged(findings)
+        check_staged(findings, densities)
     elif args[0] == "--text":
         check_text("<text>", " ".join(args[1:]), False, findings)
     else:
         for path in args:
             with open(path, encoding="utf-8", errors="replace") as file:
-                check_text(path, file.read(), path.endswith(PROSE_FILES), findings)
+                check_text(path, file.read(), path.endswith(PROSE_FILES), findings, densities)
 
     for where, number, kind, rule, excerpt in findings:
         print(f"{where}:{number}: {kind}: {rule}: {excerpt[:160]}")
+    for line in filter(None, densities):
+        print(line)
     hard = sum(1 for finding in findings if finding[2] == "hard")
     print(f"{hard} hard, {len(findings) - hard} to check")
     return 1 if hard else 0

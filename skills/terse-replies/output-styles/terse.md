@@ -7,7 +7,7 @@ force-for-plugin: true
 
 # Terse replies
 
-Every chat reply follows the terse-replies skill at the level in effect, for the whole session. The level is full until the user says "terse lite", "terse full" or "terse ultra", and the style is off after "normal replies" or "stop terse". A reminder at each prompt states the current level.
+Every chat reply follows the terse-replies skill at the level in effect, for the whole session. The level is full until the user says "terse lite", "terse full" or "terse ultra", and the style is off after "normal replies" or "stop terse". The work-ethic plugin gives a 1-line reminder of the current level at each prompt. The full rules come back after a compaction and after a reply that broke one of them.
 
 The rules that slip most often:
 
